@@ -22,8 +22,8 @@ type Data = {
 	user?: User
 	workspaces?: { 
 		groupId: number
-		groupthumbnail: string
-		groupname: string
+		groupThumbnail: string
+		groupName: string
 	}[]
 	workspaceGroupId?: number
 }
@@ -75,12 +75,55 @@ export async function handler(
 
 	// Default color fallback (kept for backward compatibility)
 	color = 'bg-orbit'
+	let groupName = `Group ${groupId}`;
+	let groupLogo = '';
+	
+	try {
+		const [logo, group] = await Promise.all([
+			noblox.getLogo(groupId).catch(() => ''),
+			noblox.getGroup(groupId).catch(() => null)
+		]);
+		if (group) groupName = group.name;
+		if (logo) groupLogo = logo;
+	} catch (err) {
+		console.error('Failed to fetch group info during workspace creation:', err);
+	}
 
 	  const workspace = await prisma.$transaction(async (tx) => {
 		const ws = await tx.workspace.create({
 			data: {
 		  groupId,
+		  groupName,
+		  groupLogo,
+		  lastSynced: new Date()
 		  //ownerId: BigInt(req.session.userid)
+			}
+		})
+
+		await tx.workspaceMember.create({
+			data: {
+				workspaceGroupId: groupId,
+				userId: BigInt(req.session.userid),
+				joinDate: new Date(),
+				isAdmin: true
+			}
+		})
+
+		const defaultRole = await tx.role.create({
+			data: {
+				name: 'Default',
+				workspaceGroupId: groupId,
+				permissions: [],
+				groupRoles: []
+			}
+		})
+
+		await tx.user.update({
+			where: { userid: req.session.userid },
+			data: {
+				roles: {
+					connect: { id: defaultRole.id }
+				}
 			}
 		})
 
@@ -126,44 +169,23 @@ export async function handler(
 				}
 			]
 		})
-
-		const role = await tx.role.create({
-			data: {
-				workspaceGroupId: groupId,
-				name: 'Admin',
-				isOwnerRole: true,
-				permissions: [
-					'admin',
-					'view_staff_config',
-					'manage_sessions',
-					'sessions_assign',
-					'sessions_claim',
-					'sessions_host',
-					'manage_activity',
-					'post_on_wall',
-					'manage_wall',
-					'manage_views',
-					'view_wall',
-					'view_members',
-					'manage_members',
-					'manage_quotas',
-					'manage_docs',
-					'manage_policies',
-					'view_entire_groups_activity',
-					'manage_alliances',
-					'represent_alliance'
-				],
-				members: { connect: { userid: BigInt(req.session.userid) } }
-			}
-		})
-
-		await tx.user.update({
-			where: { userid: req.session.userid },
-			data: { isOwner: true }
-		})
+// Removed as secondary workspace creators are NOT the instance owner, which would give them equal access to edit oauth.
+		//await tx.user.update({
+			//where: { userid: req.session.userid },
+			//data: { isOwner: true }
+		//})
 
 		return ws
 	})
+
+	// Run initial role sync synchronously to populate cache before returning
+	try {
+		const { checkGroupRoles } = await import('@/utils/permissionsManager');
+		await checkGroupRoles(groupId);
+		console.log(`[createws] Completed initial sync for workspace ${groupId}`);
+	} catch (err) {
+		console.error(`[createws] Failed to complete initial sync:`, err);
+	}
 
 	return res.status(200).json({ success: true, workspaceGroupId: workspace.groupId })
 }

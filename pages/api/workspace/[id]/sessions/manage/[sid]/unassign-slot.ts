@@ -33,7 +33,7 @@ export default withPermissionCheck(
       }
 
       const sessionDate = new Date(parseInt(date));
-      sessionDate.setMinutes(sessionDate.getMinutes() + timezoneOffset);
+      sessionDate.setMinutes(sessionDate.getMinutes() - timezoneOffset);
       sessionDate.setUTCHours(schedule.Hour);
       sessionDate.setUTCMinutes(schedule.Minute);
       sessionDate.setUTCSeconds(0);

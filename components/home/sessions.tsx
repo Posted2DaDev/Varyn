@@ -11,22 +11,22 @@ import { getThumbnail } from "@/utils/userinfoEngine";
 import { useSessionColors } from "@/hooks/useSessionColors";
 
 const BG_COLORS = [
-  "bg-red-200",
-  "bg-green-200",
-  "bg-emerald-200",
-  "bg-red-300",
-  "bg-green-300",
-  "bg-emerald-300",
-  "bg-amber-200",
-  "bg-yellow-200",
-  "bg-red-100",
-  "bg-green-100",
-  "bg-lime-200",
-  "bg-rose-200",
-  "bg-amber-300",
-  "bg-teal-200",
-  "bg-lime-300",
   "bg-rose-300",
+  "bg-lime-300",
+  "bg-teal-200",
+  "bg-amber-300",
+  "bg-rose-200",
+  "bg-lime-200",
+  "bg-green-100",
+  "bg-red-100",
+  "bg-yellow-200",
+  "bg-amber-200",
+  "bg-emerald-300",
+  "bg-green-300",
+  "bg-red-300",
+  "bg-emerald-200",
+  "bg-green-200",
+  "bg-red-200",
 ];
 
 function getRandomBg(userid: string, username?: string) {
@@ -73,6 +73,26 @@ const Sessions: React.FC = () => {
 
   const goToSessions = () => {
     router.push(`/workspace/${router.query.id}/sessions`);
+  };
+  
+  const getCurrentStatus = (session: any) => {
+    const now = new Date();
+    const sessionStart = new Date(session.date);
+    const sessionDuration = session.duration || 30;
+    const sessionEnd = new Date(sessionStart.getTime() + sessionDuration * 60 * 1000);
+    
+    if (now > sessionEnd) return "Concluded";
+    
+    const minutesFromStart = (now.getTime() - sessionStart.getTime()) / 1000 / 60;
+    const statues = (session as any).sessionType?.statues || [];
+    
+    const sortedStatues = [...statues].sort((a: any, b: any) => b.timeAfter - a.timeAfter);
+    for (const status of sortedStatues) {
+      if (minutesFromStart >= status.timeAfter) {
+        return status.name;
+      }
+    }
+    return null;
   };
 
   return (
@@ -154,9 +174,17 @@ const Sessions: React.FC = () => {
                             session.type.slice(1)}
                         </span>
                       )}
+                      {(() => {
+                        const status = getCurrentStatus(session);
+                        return status && status !== "Open" && status !== "Concluded" && (
+                          <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded text-xs font-medium">
+                            {status}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                      Hosted by {session.owner?.username || "Unknown"}
+                      {session.owner?.username ? `Hosted by ${session.owner.username}` : "No Host"}
                     </p>
                   </div>
                 </div>
@@ -211,13 +239,21 @@ const Sessions: React.FC = () => {
                             nextSession.type.slice(1)}
                         </span>
                       )}
+                      {(() => {
+                        const status = getCurrentStatus(nextSession);
+                        return status && status !== "Open" && status !== "Concluded" && (
+                          <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded text-xs font-medium">
+                            {status}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <p className="text-sm text-zinc-600 dark:text-zinc-400">
                       {new Date(nextSession.date).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}{" "}
-                      • Hosted by {nextSession.owner?.username || "Unknown"}
+                      • {nextSession.owner?.username ? `Hosted by ${nextSession.owner.username}` : "No Host"}
                     </p>
                   </div>
                 </div>

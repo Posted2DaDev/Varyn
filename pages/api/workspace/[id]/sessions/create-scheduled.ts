@@ -9,8 +9,8 @@ function checkSessionCreationRateLimit(req: NextApiRequest, res: NextApiResponse
   const userId = (req as any).session?.userid || 'anonymous';
   const key = `workspace:${workspaceId}:user:${userId}`;
   const now = Date.now();
-  const windowMs = 40 * 1000;
-  const maxRequests = 5;
+  const windowMs = 60 * 1000;
+  const maxRequests = 50;
 
   let entry = sessionCreationLimits[key];
   if (!entry || now >= entry.resetTime) {
@@ -22,7 +22,7 @@ function checkSessionCreationRateLimit(req: NextApiRequest, res: NextApiResponse
   if (entry.count > maxRequests) {
     res.status(429).json({
       success: false,
-      error: 'Too many session creation requests.'
+      error: 'Too many session creation requests. Please wait a moment before creating more sessions.'
     });
     return false;
   }
@@ -36,7 +36,7 @@ type Data = {
   sessions?: any[];
 };
 
-export default withPermissionCheck(handler, "manage_sessions");
+export default withPermissionCheck(handler, "sessions_scheduled");
 
 export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
   if (!checkSessionCreationRateLimit(req, res)) return;
@@ -54,8 +54,20 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
       .json({ success: false, error: "Missing required fields" });
   }
 
-  const { days, hours, minutes, frequency, date } = schedule;
-  if (!days || hours === undefined || minutes === undefined) {
+  const { days, hours, minutes, times, frequency, date } = schedule;
+  let timesToProcess: Array<{ hours: number; minutes: number }> = [];
+  
+  if (times && Array.isArray(times) && times.length > 0) {
+    timesToProcess = times;
+  } else if (hours !== undefined && minutes !== undefined) {
+    timesToProcess = [{ hours, minutes }];
+  } else {
+    return res
+      .status(400)
+      .json({ success: false, error: "Missing schedule time details" });
+  }
+  
+  if (!days) {
     return res
       .status(400)
       .json({ success: false, error: "Missing schedule details" });
@@ -81,6 +93,7 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
     }
 
     const sessionsToCreate = [];
+    const patternSchedules = [];
     const currentDate = new Date();
     const endDate = new Date();
     endDate.setFullYear(currentDate.getFullYear() + 1);
@@ -93,56 +106,69 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
     }
 
     const selectedDays = Array.isArray(days) ? days : [days];
-    for (const dayOfWeek of selectedDays) {
-      const today = new Date();
-      const currentDay = today.getDay();
-      let daysUntilTarget = (dayOfWeek - currentDay + 7) % 7;
-      if (daysUntilTarget === 0) {
-        const scheduledTime = new Date(today);
-        scheduledTime.setHours(hours, minutes, 0, 0);
-        if (today.getTime() >= scheduledTime.getTime()) {
-          daysUntilTarget = 7;
-        }
-      }
+    for (const timeSlot of timesToProcess) {
+      const { hours: timeHours, minutes: timeMinutes } = timeSlot;
+      const patternSchedule = await prisma.schedule.create({
+        data: {
+          Days: selectedDays,
+          Hour: timeHours,
+          Minute: timeMinutes,
+          sessionTypeId: sessionType.id,
+        },
+      });
       
-      const firstOccurrence = new Date(today);
-      firstOccurrence.setDate(today.getDate() + daysUntilTarget);
-      firstOccurrence.setUTCHours(0, 0, 0, 0);
+      patternSchedules.push(patternSchedule);
 
-      let sessionCount = 0;
-      let maxSessions;
-      if (frequency === "monthly") {
-        maxSessions = 12;
-      } else if (frequency === "biweekly") {
-        maxSessions = 26;
-      } else {
-        maxSessions = 52;
-      }
-
-      while (sessionCount < maxSessions) {
-        const sessionDate = new Date(firstOccurrence);
-        sessionDate.setDate(firstOccurrence.getDate() + (sessionCount * intervalDays));
-        
-        const localDateStr = sessionDate.toISOString().split('T')[0];
-        const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-        const localDateTime = new Date(localDateStr + 'T' + timeStr + ':00');
-        const offsetMinutes = timezoneOffset || 0;
-        const utcSessionDate = new Date(localDateTime.getTime() + (offsetMinutes * 60000));
-
-        if (utcSessionDate >= currentDate && utcSessionDate <= endDate) {
-          const scheduleId = sessionType.schedule && sessionType.schedule.length > 0 ? sessionType.schedule[0].id : null;
-          const sessionData: any = {
-            date: utcSessionDate,
-            sessionTypeId: sessionType.id,
-            scheduleId: scheduleId,
-            name: name,
-            type: type,
-          };
-          
-          sessionData.duration = duration || 30;
-          sessionsToCreate.push(sessionData);
+      for (const dayOfWeek of selectedDays) {
+        const today = new Date();
+        const currentDay = today.getDay();
+        let daysUntilTarget = (dayOfWeek - currentDay + 7) % 7;
+        if (daysUntilTarget === 0) {
+          const scheduledTime = new Date(today);
+          scheduledTime.setHours(timeHours, timeMinutes, 0, 0);
+          if (today.getTime() >= scheduledTime.getTime()) {
+            daysUntilTarget = 7;
+          }
         }
-        sessionCount++;
+        
+        const firstOccurrence = new Date(today);
+        firstOccurrence.setDate(today.getDate() + daysUntilTarget);
+        firstOccurrence.setUTCHours(0, 0, 0, 0);
+
+        let sessionCount = 0;
+        let maxSessions;
+        if (frequency === "monthly") {
+          maxSessions = 12;
+        } else if (frequency === "biweekly") {
+          maxSessions = 26;
+        } else {
+          maxSessions = 52;
+        }
+
+        while (sessionCount < maxSessions) {
+          const sessionDate = new Date(firstOccurrence);
+          sessionDate.setDate(firstOccurrence.getDate() + (sessionCount * intervalDays));
+          
+          const localDateStr = sessionDate.toISOString().split('T')[0];
+          const timeStr = `${timeHours.toString().padStart(2, '0')}:${timeMinutes.toString().padStart(2, '0')}`;
+          const parsedDate = new Date(localDateStr + 'T' + timeStr + ':00Z');
+          const offsetMinutes = timezoneOffset || 0;
+          const sessionDateTime = new Date(parsedDate.getTime() + offsetMinutes * 60000);
+
+          if (sessionDateTime >= currentDate && sessionDateTime <= endDate) {
+            const sessionData: any = {
+              date: sessionDateTime,
+              sessionTypeId: sessionType.id,
+              scheduleId: patternSchedule.id,
+              name: name,
+              type: type,
+            };
+            
+            sessionData.duration = duration || 30;
+            sessionsToCreate.push(sessionData);
+          }
+          sessionCount++;
+        }
       }
     }
 

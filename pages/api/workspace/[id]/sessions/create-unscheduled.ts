@@ -34,7 +34,7 @@ type Data = {
   session?: any;
 };
 
-export default withPermissionCheck(handler, "manage_sessions");
+export default withPermissionCheck(handler, "sessions_unscheduled");
 
 export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
   if (!checkSessionCreationRateLimit(req, res)) return;
@@ -80,15 +80,14 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
         });
     }
 
-    const localDateTime = new Date(date + 'T' + time + ':00');
-    
+    const parsedDate = new Date(date + 'T' + time + ':00Z');
     const offsetMinutes = timezoneOffset || 0;
-    const utcDate = new Date(localDateTime.getTime() + (offsetMinutes * 60000));
+    const sessionDate = new Date(parsedDate.getTime() + offsetMinutes * 60000);
 
     const sessionData: any = {
       name,
       type,
-      date: utcDate,
+      date: sessionDate,
       sessionTypeId: sessionTypeId,
       scheduleId: null,
     };
@@ -121,7 +120,7 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
           sessionName: name,
           type: type,
           creationType: "unscheduled",
-          date: utcDate.toISOString(),
+          date: sessionDate.toISOString(),
         },
       },
     });

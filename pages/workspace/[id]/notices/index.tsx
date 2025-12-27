@@ -24,22 +24,22 @@ import {
 } from "@tabler/icons-react";
 
 const BG_COLORS = [
-  "bg-red-200",
-  "bg-green-200",
-  "bg-emerald-200",
-  "bg-red-300",
-  "bg-green-300",
-  "bg-emerald-300",
-  "bg-amber-200",
-  "bg-yellow-200",
-  "bg-red-100",
-  "bg-green-100",
-  "bg-lime-200",
-  "bg-rose-200",
-  "bg-amber-300",
-  "bg-teal-200",
-  "bg-lime-300",
   "bg-rose-300",
+  "bg-lime-300",
+  "bg-teal-200",
+  "bg-amber-300",
+  "bg-rose-200",
+  "bg-lime-200",
+  "bg-green-100",
+  "bg-red-100",
+  "bg-yellow-200",
+  "bg-amber-200",
+  "bg-emerald-300",
+  "bg-green-300",
+  "bg-red-300",
+  "bg-emerald-200",
+  "bg-green-200",
+  "bg-red-200",
 ];
 
 function getRandomBg(userid: string, username?: string) {
@@ -97,6 +97,11 @@ export const getServerSideProps = withPermissionCheckSsr(
             isOwnerRole: "desc",
           },
         },
+        workspaceMemberships: {
+          where: {
+            workspaceGroupId: workspaceId,
+          },
+        },
       },
     });
 
@@ -127,8 +132,13 @@ export const getServerSideProps = withPermissionCheckSsr(
       return { notFound: true };
     }
 
-    const hasManagePermission = user?.roles.some(
-      (role) => role.isOwnerRole || role.permissions.includes("manage_activity")
+    const membership = user?.workspaceMemberships?.[0];
+    const isAdmin = membership?.isAdmin || false;
+    const hasManagePermission = isAdmin || user?.roles.some(
+      (role) => role.permissions.includes("manage_notices")
+    );
+    const hasCreatePermission = isAdmin || user?.roles.some(
+      (role) => role.permissions.includes("create_notices")
     );
     if (hasManagePermission) {
       allNotices = await prisma.inactivityNotice.findMany({
@@ -157,9 +167,11 @@ export const getServerSideProps = withPermissionCheckSsr(
           )
         ) as NoticeWithUser[],
         canManageNotices: hasManagePermission,
+        canCreateNotices: !!hasCreatePermission,
       },
     };
-  }
+  },
+  undefined
 );
 
 type pageProps = InferGetServerSidePropsType<typeof getServerSideProps>;
@@ -168,12 +180,14 @@ interface NoticesPageProps {
   userNotices: NoticeWithUser[];
   allNotices: NoticeWithUser[];
   canManageNotices: boolean;
+  canCreateNotices: boolean;
 }
 
 const Notices: pageWithLayout<NoticesPageProps> = ({
   userNotices: initialUserNotices,
   allNotices: initialAllNotices,
   canManageNotices: canManageNoticesProp,
+  canCreateNotices,
 }) => {
   const router = useRouter();
   const { id } = router.query;
@@ -408,33 +422,33 @@ const Notices: pageWithLayout<NoticesPageProps> = ({
                 Notices
               </h1>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                Manage your inactivity notices
+                {activeTab === "my-notices" ? "Manage your inactivity notices" : "Review and manage team notices"}
               </p>
             </div>
           </div>
           {canManageNotices && (
-            <div className="flex space-x-1 mb-6 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg w-fit">
+            <div className="flex p-1 gap-1 bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 rounded-lg mb-6">
               <button
                 onClick={() => setActiveTab("my-notices")}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeTab === "my-notices"
-                    ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                    ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-white"
+                    : "text-zinc-600 dark:text-zinc-300 hover:bg-white/70 dark:hover:bg-zinc-800/80"
                 }`}
               >
-                <IconUserCircle className="w-4 h-4 inline-block mr-2 text-zinc-600 dark:text-zinc-400" />
-                My Notices
+                <IconUserCircle className="w-4 h-4" />
+                <span>My Notices</span>
               </button>
               <button
                 onClick={() => setActiveTab("manage-notices")}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeTab === "manage-notices"
-                    ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                    ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-white"
+                    : "text-zinc-600 dark:text-zinc-300 hover:bg-white/70 dark:hover:bg-zinc-800/80"
                 }`}
               >
-                <IconUsers className="w-4 h-4 inline-block mr-2 text-zinc-600 dark:text-zinc-400" />
-                Manage Notices
+                <IconUsers className="w-4 h-4" />
+                <span>Manage Notices</span>
               </button>
             </div>
           )}
@@ -446,15 +460,20 @@ const Notices: pageWithLayout<NoticesPageProps> = ({
                     <div className="bg-primary/10 p-2 rounded-lg">
                       <IconCalendarTime className="w-5 h-5 text-primary" />
                     </div>
-                    <h2 className="text-lg font-medium text-zinc-900 dark:text-white">
-                      Active Notices
-                    </h2>
+                    <div>
+                      <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                        Active Notices
+                      </h2>
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                        Currently approved inactivity periods.
+                      </p>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-4">
                     {myActiveNotices.map((notice) => (
                       <div
                         key={notice.id}
-                        className="flex flex-col items-center gap-2 bg-zinc-50 dark:bg-zinc-700 rounded-lg p-4 shadow-sm"
+                        className="flex flex-col items-center gap-2 bg-zinc-50 dark:bg-zinc-800/60 rounded-lg p-4 shadow-sm"
                       >
                         <div
                           className={`w-16 h-16 rounded-full flex items-center justify-center ${getRandomBg(
@@ -482,14 +501,21 @@ const Notices: pageWithLayout<NoticesPageProps> = ({
                 </div>
               )}
 
-              <div className="bg-white dark:bg-zinc-800 border border-white/10 rounded-xl p-6 shadow-sm mb-8">
+                <div className="bg-white dark:bg-zinc-800 border border-white/10 rounded-xl p-6 shadow-sm mb-8">
+                  {canCreateNotices ? (
+                <>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="bg-primary/10 p-2 rounded-lg">
                     <IconPlus className="w-5 h-5 text-primary" />
                   </div>
-                  <h2 className="text-lg font-medium text-zinc-900 dark:text-white">
-                    Request Inactivity Notice
-                  </h2>
+                  <div>
+                    <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                      Request Inactivity Notice
+                    </h2>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Submit a time-off request for review by your leadership team.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="mb-4">
@@ -631,11 +657,17 @@ const Notices: pageWithLayout<NoticesPageProps> = ({
                 >
                   {isCreating ? "Submitting..." : "Submit Notice"}
                 </button>
+                </>
+                ) : (
+                  <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                    You don't have permission to create notices.
+                  </div>
+                )}
               </div>
 
               {userNotices.length > 0 && (
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium text-zinc-900 dark:text-white mb-4">
+                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
                     My Submitted Notices
                   </h3>
                   <div className="grid gap-4">
@@ -744,7 +776,7 @@ const Notices: pageWithLayout<NoticesPageProps> = ({
                         <div className="flex gap-2">
                           <button
                             onClick={() => updateNotice(notice.id, "cancel")}
-                            className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
+                            className="flex-1 px-3 py-2 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/60"
                           >
                             Revoke
                           </button>
@@ -804,16 +836,16 @@ const Notices: pageWithLayout<NoticesPageProps> = ({
                         <div className="flex gap-2">
                           <button
                             onClick={() => updateNotice(notice.id, "approve")}
-                            className="flex-1 px-3 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 text-sm font-medium"
+                            className="flex-1 px-3 py-2 text-sm font-medium rounded-md bg-primary/10 text-primary hover:bg-primary/20"
                           >
                             <IconCheck className="w-4 h-4 inline-block mr-1 text-primary" />
                             Approve
                           </button>
                           <button
                             onClick={() => updateNotice(notice.id, "deny")}
-                            className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
+                            className="flex-1 px-3 py-2 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 shadow-sm"
                           >
-                            <IconX className="w-4 h-4 inline-block mr-1 text-red-600" />
+                            <IconX className="w-4 h-4 inline-block mr-1 text-white" />
                             Deny
                           </button>
                         </div>

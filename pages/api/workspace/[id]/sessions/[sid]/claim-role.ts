@@ -83,6 +83,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
             workspaceGroupId: parseInt(req.query.id as string),
           },
         },
+        workspaceMemberships: {
+          where: {
+            workspaceGroupId: parseInt(req.query.id as string),
+          },
+        },
       },
     });
 
@@ -93,11 +98,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
       });
     }
 
+    const membership = currentUser.workspaceMemberships[0];
+    const isAdmin = membership?.isAdmin || false;
     const userPermissions = currentUser.roles[0].permissions;
-    const isOwner = currentUser.roles[0].isOwnerRole;
-    const hasAssignPermission = isOwner || userPermissions.includes("sessions_assign");
-    const hasClaimPermission = isOwner || userPermissions.includes("sessions_claim");
-    const hasHostPermission = isOwner || userPermissions.includes("sessions_host");
+    const hasAssignPermission = isAdmin || userPermissions.includes("sessions_assign") || userPermissions.includes("admin"); 
+    const hasClaimPermission = isAdmin || userPermissions.includes("sessions_claim") || userPermissions.includes("admin")
+    const hasHostPermission = isAdmin || userPermissions.includes("sessions_host") || userPermissions.includes("admin")
     const isAssigningToSelf = userId && userId.toString() === currentUserId.toString();
 
     if (action === "unclaim") {
@@ -172,13 +178,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
             error: "This slot is already claimed by another user",
           });
       }
-
-      await prisma.sessionUser.deleteMany({
-        where: {
-          userid: BigInt(userId),
-          sessionid: sid as string,
-        },
-      });
 
       const result = await prisma.sessionUser.create({
         data: {

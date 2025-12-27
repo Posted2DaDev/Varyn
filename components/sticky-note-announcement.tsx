@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { IconX, IconPin } from "@tabler/icons-react";
-const ANNOUNCEMENT_KEY = "announcementDismissed_v2_1_6b1";
+const ANNOUNCEMENT_KEY = "announcementDismissed_v2_1_7b1";
 
 export default function StickyNoteAnnouncement() {
   const [isVisible, setIsVisible] = useState(false);

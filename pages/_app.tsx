@@ -207,10 +207,12 @@ function Initializer() {
     } catch (e) {
       console.error("PostHog identify error", e);
     }
+  }, [login]);
 
+  useEffect(() => {
     (async () => {
       if (!INTERCOM_APP_ID) return;
-      if (!login) {
+      if (!login || login.userId === 1 || !login.username) {
         try {
           (window as any).Intercom && (window as any).Intercom("shutdown");
         } catch (e) {}
@@ -227,19 +229,14 @@ function Initializer() {
           return;
         }
 
-        if (!document.getElementById("intercom-script")) {
-          const s = document.createElement("script");
-          s.id = "intercom-script";
-          s.src = `https://widget.intercom.io/widget/${INTERCOM_APP_ID}`;
-          s.async = true;
-          document.head.appendChild(s);
-        }
-
+        const Intercom = (await import("@intercom/messenger-js-sdk")).default;
+        
         const avatar = `${window.location.origin}/avatars/${login.userId}.png`;
+        const userId = String(login.userId);
         const payload: any = {
           app_id: INTERCOM_APP_ID,
           name: login.username,
-          user_id: String(login.userId),
+          user_id: userId,
           avatar: { type: "image", image_url: avatar },
         };
 
@@ -249,35 +246,19 @@ function Initializer() {
           });
           if (r.ok) {
             const j = await r.json();
-            if (j.intercom_user_jwt)
-              payload.intercom_user_jwt = j.intercom_user_jwt;
-            else console.warn("Intercom token endpoint did not return a JWT");
-          } else {
-            try {
-              const err = await r.json();
-              console.warn("Intercom token endpoint returned error:", err);
-            } catch (e) {}
+            if (j.intercom_user_hash) {
+              payload.user_hash = j.intercom_user_hash;
+            }
           }
-        } catch (e) {
-          console.warn("Failed to fetch intercom token:", e);
-        }
-
-        try {
-          (window as any).Intercom && (window as any).Intercom("shutdown");
         } catch (e) {}
 
-        const boot = () => {
-          try {
-            (window as any).Intercom("boot", payload);
-          } catch (e) {}
-        };
-        if ((window as any).Intercom) boot();
-        else if (document.getElementById("intercom-script"))
-          document
-            .getElementById("intercom-script")!
-            .addEventListener("load", boot);
+        try {
+          Intercom(payload);
+        } catch (e) {
+          console.error("Failed to initialize Intercom:", e);
+        }
       } catch (e) {
-        console.error("Intercom init (authenticated) error", e);
+        console.error("Intercom init error", e);
       }
     })();
   }, [login]);

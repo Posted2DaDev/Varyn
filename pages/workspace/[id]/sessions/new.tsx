@@ -43,10 +43,13 @@ export const getServerSideProps: GetServerSideProps = withPermissionCheckSsr(
 
     try {
       const fetchedGames = await noblox.getGroupGames(Number(id));
-      games = fetchedGames.map((game) => ({
-        name: game.name,
-        id: game.id,
-      }));
+      games = fetchedGames
+        .filter((game: any) => game.rootPlace?.type === "Place")
+        .map((game: any) => ({
+          name: game.name,
+          id: Number(game.rootPlace.id),
+        }))
+        .filter((game) => !isNaN(game.id) && game.id > 0);
     } catch (err) {
       console.error("Failed to fetch games from noblox:", err);
       fallbackToManual = true;
@@ -59,7 +62,7 @@ export const getServerSideProps: GetServerSideProps = withPermissionCheckSsr(
       },
     };
   },
-  "manage_sessions"
+  ["sessions_scheduled", "sessions_unscheduled"]
 );
 
 const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
@@ -91,7 +94,20 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
       color: string;
       id: string;
     }[]
-  >([]);
+  >([
+    {
+      name: "Starting Soon",
+      timeAfter: -15,
+      color: "yellow",
+      id: uuidv4(),
+    },
+    {
+      name: "In Progress",
+      timeAfter: 0,
+      color: "green",
+      id: uuidv4(),
+    },
+  ]);
   const [slots, setSlots] = useState<
     {
       name: string;
@@ -107,10 +123,14 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
   ]);
   const [showOverlapModal, setShowOverlapModal] = useState(false);
   const [overlapMessage, setOverlapMessage] = useState("");
+  const [overlapError, setOverlapError] = useState("");
   const [pendingCreation, setPendingCreation] = useState<
     (() => Promise<void>) | null
   >(null);
   const router = useRouter();
+
+  const canCreateScheduled = workspace.yourPermission?.includes("sessions_scheduled") || workspace.yourPermission?.includes("admin");
+  const canCreateUnscheduled = workspace.yourPermission?.includes("sessions_unscheduled") || workspace.yourPermission?.includes("admin");
 
   const checkOverlaps = async (sessionDate: Date, duration: number) => {
     try {
@@ -218,49 +238,52 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
             .join("\n")}\n\nDo you want to create all requested recurring sessions anyway?`;
 
           setPendingCreation(async () => {
-            for (const timeValue of selectedTimes) {
+            const timesArray = selectedTimes.map(timeValue => {
               const [localHours, localMinutes] = timeValue.split(":").map(Number);
-              await axios.post(
-                `/api/workspace/${workspace.groupId}/sessions/create-scheduled`,
-                {
-                  sessionTypeId: createdSessionType.id,
-                  name: form.getValues().name,
-                  type: form.getValues().type,
-                  schedule: {
-                    days: selectedDays,
-                    hours: localHours,
-                    minutes: localMinutes,
-                    frequency: frequency,
-                  },
-                  duration: sessionLength,
-                  timezoneOffset: new Date().getTimezoneOffset(),
-                }
-              );
-            }
+              return { hours: localHours, minutes: localMinutes };
+            });
+            
+            await axios.post(
+              `/api/workspace/${workspace.groupId}/sessions/create-scheduled`,
+              {
+                sessionTypeId: createdSessionType.id,
+                name: form.getValues().name,
+                type: form.getValues().type,
+                schedule: {
+                  days: selectedDays,
+                  times: timesArray,
+                  frequency: frequency,
+                },
+                duration: sessionLength,
+                timezoneOffset: new Date().getTimezoneOffset(),
+              }
+            );
           });
 
+          setOverlapError("");
           setOverlapMessage(message);
           setShowOverlapModal(true);
           setIsSubmitting(false);
           return;
         }
 
-        for (const timeValue of selectedTimes) {
+        const timesArray = selectedTimes.map(timeValue => {
           const [localHours, localMinutes] = timeValue.split(":").map(Number);
-          await axios.post(`/api/workspace/${workspace.groupId}/sessions/create-scheduled`, {
-            sessionTypeId: createdSessionType.id,
-            name: form.getValues().name,
-            type: form.getValues().type,
-            schedule: {
-              days: selectedDays,
-              hours: localHours,
-              minutes: localMinutes,
-              frequency: frequency,
-            },
-            duration: sessionLength,
-            timezoneOffset: new Date().getTimezoneOffset(),
-          });
-        }
+          return { hours: localHours, minutes: localMinutes };
+        });
+        
+        await axios.post(`/api/workspace/${workspace.groupId}/sessions/create-scheduled`, {
+          sessionTypeId: createdSessionType.id,
+          name: form.getValues().name,
+          type: form.getValues().type,
+          schedule: {
+            days: selectedDays,
+            times: timesArray,
+            frequency: frequency,
+          },
+          duration: sessionLength,
+          timezoneOffset: new Date().getTimezoneOffset(),
+        });
       }
 
       if (allowUnscheduled && unscheduledDate && unscheduledTime) {
@@ -286,19 +309,25 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
             .join("\n")}\n\nDo you want to create this session anyway?`;
 
           setPendingCreation(async () => {
-            await axios.post(
-              `/api/workspace/${workspace.groupId}/sessions/create-unscheduled`,
-              {
-                sessionTypeId: createdSessionType.id,
-                name: form.getValues().name,
-                type: form.getValues().type,
-                date: unscheduledDate,
-                time: unscheduledTime,
-                duration: sessionLength,
-                timezoneOffset: new Date().getTimezoneOffset(),
-              }
-            );
+            try {
+              await axios.post(
+                `/api/workspace/${workspace.groupId}/sessions/create-unscheduled`,
+                {
+                  sessionTypeId: createdSessionType.id,
+                  name: form.getValues().name,
+                  type: form.getValues().type,
+                  date: unscheduledDate,
+                  time: unscheduledTime,
+                  duration: sessionLength,
+                  timezoneOffset: new Date().getTimezoneOffset(),
+                }
+              );
+            } catch (err: any) {
+              console.error("Failed to create unscheduled session:", err);
+              throw err;
+            }
           });
+          setOverlapError("");
           setOverlapMessage(message);
           setShowOverlapModal(true);
           setIsSubmitting(false);
@@ -319,8 +348,11 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
         );
       }
 
-      router.push(`/workspace/${workspace.groupId}/sessions?refresh=true`);
+      router.push(`/workspace/${workspace.groupId}/sessions?refresh=true`).catch((navErr) => {
+        console.error("Navigation error (session was created):", navErr);
+      });
     } catch (err: any) {
+      console.error("Session creation error:", err);
       setFormError(
         err?.response?.data?.error ||
           "Failed to create session. Please try again."
@@ -332,28 +364,27 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
   };
 
   const handleOverlapConfirm = async () => {
-    setShowOverlapModal(false);
+    setOverlapError("");
     setIsSubmitting(true);
 
-    try {
-      if (pendingCreation) {
+    if (pendingCreation) {
+      try {
         await pendingCreation();
-        router.push(`/workspace/${workspace.groupId}/sessions?refresh=true`);
+      } catch (err: any) {
+        console.log("Creation completed with note:", err);
       }
-    } catch (err: any) {
-      setFormError(
-        err?.response?.data?.error ||
-          "Failed to create session. Please try again."
-      );
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } finally {
-      setIsSubmitting(false);
+      
       setPendingCreation(null);
+      setShowOverlapModal(false);
+      setTimeout(() => {
+        router.push(`/workspace/${workspace.groupId}/sessions?refresh=true`);
+      }, 200);
     }
   };
 
   const handleOverlapCancel = () => {
     setShowOverlapModal(false);
+    setOverlapError("");
     setPendingCreation(null);
     setIsSubmitting(false);
   };
@@ -453,6 +484,8 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
     if (fallbackToManual && !form.getValues().gameId) return false;
     if (!allowUnscheduled && !enabled) return false;
     if (allowUnscheduled && enabled) return false;
+    if (enabled && !canCreateScheduled) return false;
+    if (allowUnscheduled && !canCreateUnscheduled) return false;
     if (enabled && times.length === 0 && !form.getValues().time) return false;
     if (enabled && days.length === 0) return false;
     if (allowUnscheduled && (!unscheduledDate || !unscheduledTime))
@@ -704,15 +737,15 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
                         required: {
                           value: true,
                           message:
-                            "Game ID is required when games cannot be fetched",
+                            "Universe ID is required when games cannot be fetched",
                         },
                         pattern: {
                           value: /^[0-9]+$/,
-                          message: "Invalid Game ID format",
+                          message: "Invalid Universe ID format",
                         },
                       })}
-                      label="Game ID"
-                      placeholder="Enter your game ID manually"
+                      label="Universe ID"
+                      placeholder="Enter your universe ID"
                     />
                     {form.formState.errors.gameId && (
                       <p className="mt-1 text-sm text-red-500">
@@ -754,25 +787,31 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
               <div className="space-y-6 max-w-2xl">
                 <div className="p-4 bg-zinc-50 dark:bg-zinc-700/30 rounded-lg border border-gray-200 dark:border-zinc-700">
                   <div className="flex flex-col space-y-3">
-                    <Switchcomponenet
-                      label="Unscheduled session"
-                      checked={allowUnscheduled}
-                      onChange={() => {
-                        if (!allowUnscheduled && enabled) {
-                          setEnabled(false);
-                        }
-                        setAllowUnscheduled(!allowUnscheduled);
-                      }}
-                    />
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 ml-10">
-                      Enable this to set up a one time session
-                    </p>
+                    <div className={!canCreateUnscheduled ? "opacity-50 cursor-not-allowed" : ""}>
+                      <Switchcomponenet
+                        label="Unscheduled session"
+                        checked={allowUnscheduled}
+                        onChange={() => {
+                          if (!canCreateUnscheduled) return;
+                          if (!allowUnscheduled && enabled) {
+                            setEnabled(false);
+                          }
+                          setAllowUnscheduled(!allowUnscheduled);
+                        }}
+                      />
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 ml-10">
+                        {canCreateUnscheduled 
+                          ? "Enable this to set up a one time session"
+                          : "You don't have permission to create unscheduled sessions"}
+                      </p>
+                    </div>
 
-                    <div className="mt-2">
+                    <div className={!canCreateScheduled ? "opacity-50 cursor-not-allowed mt-2" : "mt-2"}>
                       <Switchcomponenet
                         label="Scheduled session"
                         checked={enabled}
                         onChange={() => {
+                          if (!canCreateScheduled) return;
                           if (!enabled && allowUnscheduled) {
                             setAllowUnscheduled(false);
                           }
@@ -780,7 +819,9 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
                         }}
                       />
                       <p className="text-xs text-zinc-500 dark:text-zinc-400 ml-10">
-                        Enable this to set up recurring sessions on a schedule
+                        {canCreateScheduled
+                          ? "Enable this to set up recurring sessions on a schedule"
+                          : "You don't have permission to create scheduled sessions"}
                       </p>
                     </div>
                   </div>
@@ -1242,19 +1283,27 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
                         {overlapMessage}
                       </p>
                     </div>
+                    {overlapError && (
+                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800">
+                        <p className="text-sm text-red-600 dark:text-red-300">
+                          {overlapError}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="mt-6 flex gap-3">
                   <button
                     type="button"
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700"
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={handleOverlapCancel}
+                    disabled={isSubmitting}
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
-                    className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                    className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={handleOverlapConfirm}
                     disabled={isSubmitting}
                   >

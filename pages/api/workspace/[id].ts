@@ -39,7 +39,6 @@ export async function handler(
 	res: NextApiResponse<Data>
 ) {
 	if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method not allowed' })
-	if (!await prisma.workspace.count()) return res.status(400).json({ success: false, error: 'Workspace not setup' })
 	if (!req.session.userid) return res.status(401).json({ success: false, error: 'Not logged in' });
 	const { id } = req.query
 	const time = new Date()
@@ -54,10 +53,9 @@ export async function handler(
 	})
 
 	if (!workspace) return res.status(400).json({ success: false, error: 'Workspace not found' })
-	console.log(`Workspace found after ${Date.now() - time.getTime()}ms`)
+	console.log(`Workspace found after ${new Date().getTime() - time.getTime()}ms`)
 	const themeconfig = await getConfig('customization', workspace.groupId)
-	const homeConfig = await getConfig('home', workspace.groupId)
-	console.log(`Theme config found after ${Date.now() - time.getTime()}ms`)
+	console.log(`Theme config found after ${new Date().getTime() - time.getTime()}ms`)
 	const roles = await prisma.role.findMany({
 		where: {
 			workspaceGroupId: workspace.groupId
@@ -66,7 +64,7 @@ export async function handler(
 			isOwnerRole: 'desc'
 		}
 	})
-	console.log(`Roles found after ${Date.now() - time.getTime()}ms`)
+	console.log(`Roles found after ${new Date().getTime() - time.getTime()}ms`)
 	let groupinfo = await noblox.getGroup(workspace.groupId)
 
 	const user = await prisma.user.findUnique({
@@ -84,7 +82,7 @@ export async function handler(
 			}
 		}
 	})
-	console.log(`User found after ${Date.now() - time.getTime()}ms`)
+	console.log(`User found after ${new Date().getTime() - time.getTime()}ms`)
 
 	if (!user) return res.status(401).json({ success: false, error: 'Not logged in' })
 	if (!user.roles.length) return res.status(401).json({ success: false, error: 'Not logged in' })
@@ -98,6 +96,8 @@ export async function handler(
 		'Assign users to Sessions': 'sessions_assign',
 		'Assign Self to Sessions': 'sessions_claim',
 		'Host Sessions': 'sessions_host',
+		"Create Unscheduled": "sessions_unscheduled",
+		"Create Scheduled": "sessions_scheduled",
 		"Manage sessions": "manage_sessions",
 		"Manage activity": "manage_activity",
 		"Manage quotas": "manage_quotas",
@@ -110,11 +110,14 @@ export async function handler(
 		"Admin (Manage workspace)": "admin",
 	};	
 	
+	const membership = user.workspaceMemberships[0];
+	const isAdmin = membership?.isAdmin || false;
+	
 	res.status(200).json({ success: true, permissions: user.roles[0].permissions, workspace: {
 		groupId: workspace.groupId,
-		groupThumbnail: await noblox.getLogo(workspace.groupId),
+		groupThumbnail: groupLogo,
 		groupName: groupinfo.name,
-		yourPermission: user.roles[0].isOwnerRole ? Object.values(permissions) : user.roles[0].permissions,
+		yourPermission: isAdmin ? Object.values(permissions) : user.roles[0].permissions,
 		groupTheme: themeconfig,
 		roles: roles,
 		yourRole: user.roles[0].id,
