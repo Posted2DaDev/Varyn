@@ -19,7 +19,6 @@ import {
   IconMoodSmile,
   IconX,
   IconTrash,
-  IconInbox,
 } from "@tabler/icons-react";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import sanitizeHtml from "sanitize-html";
@@ -52,18 +51,6 @@ export const getServerSideProps: GetServerSideProps = withPermissionCheckSsr(
       },
     });
 
-    const user = await prisma.user.findUnique({
-      where: { userid: req.session.userid },
-      include: {
-        roles: {
-          where: { workspaceGroupId: parseInt(query.id as string) },
-          orderBy: { isOwnerRole: "desc" },
-        },
-      },
-    });
-
-    const userPermissions = user?.roles?.[0]?.permissions || [];
-
     return {
       props: {
         posts: JSON.parse(
@@ -71,7 +58,6 @@ export const getServerSideProps: GetServerSideProps = withPermissionCheckSsr(
             typeof value === "bigint" ? value.toString() : value
           )
         ) as typeof posts,
-        userPermissions,
       },
     };
   }
@@ -79,7 +65,6 @@ export const getServerSideProps: GetServerSideProps = withPermissionCheckSsr(
 
 type pageProps = {
   posts: wallPost[];
-  userPermissions: string[];
 };
 
 const Wall: pageWithLayout<pageProps> = (props) => {
@@ -90,7 +75,6 @@ const Wall: pageWithLayout<pageProps> = (props) => {
   const [workspace, setWorkspace] = useRecoilState(workspacestate);
   const [wallMessage, setWallMessage] = useState("");
   const [posts, setPosts] = useState(props.posts);
-  const userPermissions = props.userPermissions;
   const [loading, setLoading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -211,22 +195,22 @@ const Wall: pageWithLayout<pageProps> = (props) => {
   };
 
   const BG_COLORS = [
-    "bg-rose-300",
-    "bg-lime-300",
-    "bg-teal-200",
-    "bg-amber-300",
-    "bg-rose-200",
-    "bg-lime-200",
-    "bg-green-100",
-    "bg-red-100",
-    "bg-yellow-200",
-    "bg-amber-200",
-    "bg-emerald-300",
-    "bg-green-300",
-    "bg-red-300",
-    "bg-emerald-200",
-    "bg-green-200",
     "bg-red-200",
+    "bg-green-200",
+    "bg-emerald-200",
+    "bg-red-300",
+    "bg-green-300",
+    "bg-emerald-300",
+    "bg-amber-200",
+    "bg-yellow-200",
+    "bg-red-100",
+    "bg-green-100",
+    "bg-lime-200",
+    "bg-rose-200",
+    "bg-amber-300",
+    "bg-teal-200",
+    "bg-lime-300",
+    "bg-rose-300",
   ];
 
   function getRandomBg(userid: string, username?: string) {
@@ -369,10 +353,12 @@ const Wall: pageWithLayout<pageProps> = (props) => {
       <div className="space-y-6">
         {posts.length < 1 ? (
           <div className="bg-white dark:bg-zinc-800 border-zinc-100 dark:border-zinc-700 rounded-xl shadow-sm p-8 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <IconInbox className="w-8 h-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-medium text-zinc-900 dark:text-white mb-1">
+            <img
+              className="mx-auto h-48 mb-4"
+              alt="No posts yet"
+              src="/conifer-charging-the-battery-with-a-windmill.png"
+            />
+            <h3 className="text-xl font-semibold text-zinc-900 dark:text-white mb-2">
               No posts yet
             </h3>
             <p className="text-zinc-500 dark:text-zinc-400">
@@ -410,25 +396,19 @@ const Wall: pageWithLayout<pageProps> = (props) => {
                         )}
                       </p>
                     </div>
-                    {(() => {
-                      const isAuthor =
-                        String(post.authorId) === String(login.userId);
-                      const hasManageWall =
-                        userPermissions.includes("manage_wall");
-                      const canDelete = isAuthor || hasManageWall;
-
-                      return canDelete ? (
-                        <button
-                          onClick={() => {
-                            setPostToDelete(post.id);
-                            setShowDeleteModal(true);
-                          }}
-                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        >
-                          <IconTrash size={18} />
-                        </button>
-                      ) : null;
-                    })()}
+                    {(post.authorId === login.userId ||
+                      workspace.yourPermission.includes("manage_wall") ||
+                      login.canMakeWorkspace) && (
+                      <button
+                        onClick={() => {
+                          setPostToDelete(post.id);
+                          setShowDeleteModal(true);
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      >
+                        <IconTrash size={18} />
+                      </button>
+                    )}
                   </div>
                   <div className="prose text-zinc-800 dark:text-zinc-200 dark:prose-invert max-w-none mt-3">
                     <ReactMarkdown rehypePlugins={[rehypeSanitize]}>

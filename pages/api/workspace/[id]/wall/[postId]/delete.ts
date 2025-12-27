@@ -26,16 +26,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     where: { userid: userId },
     include: {
       roles: { where: { workspaceGroupId: groupId } },
-      workspaceMemberships: { where: { workspaceGroupId: groupId } },
     },
   });
-  const membership = user?.workspaceMemberships?.[0];
-  const isAdmin = membership?.isAdmin || false;
   const isOwner = post.authorId === BigInt(userId);
   const hasPermission = user?.roles[0]?.permissions.includes("manage_wall");
   const isInstanceOwner = user?.isOwner === true;
 
-  if (!isOwner && !hasPermission && !isInstanceOwner && !isAdmin) {
+  if (!isOwner && !hasPermission && !isInstanceOwner) {
     return res.status(403).json({ success: false, error: "Not authorized" });
   }
 

@@ -27,26 +27,25 @@ import axios from "axios";
 import { withPermissionCheckSsr } from "@/utils/permissionsManager";
 import toast, { Toaster } from "react-hot-toast";
 import SessionTemplate from "@/components/sessioncard";
-import PatternEditDialog from "@/components/sessionpatterns";
 import { Dialog, Transition } from "@headlessui/react";
 
 const BG_COLORS = [
-  "bg-rose-300",
-  "bg-lime-300",
-  "bg-teal-200",
-  "bg-amber-300",
-  "bg-rose-200",
-  "bg-lime-200",
-  "bg-green-100",
-  "bg-red-100",
-  "bg-yellow-200",
-  "bg-amber-200",
-  "bg-emerald-300",
-  "bg-green-300",
-  "bg-red-300",
-  "bg-emerald-200",
-  "bg-green-200",
   "bg-red-200",
+  "bg-green-200",
+  "bg-emerald-200",
+  "bg-red-300",
+  "bg-green-300",
+  "bg-emerald-300",
+  "bg-amber-200",
+  "bg-yellow-200",
+  "bg-red-100",
+  "bg-green-100",
+  "bg-lime-200",
+  "bg-rose-200",
+  "bg-amber-300",
+  "bg-teal-200",
+  "bg-lime-300",
+  "bg-rose-300",
 ];
 
 function getRandomBg(userid: string, username?: string) {
@@ -238,7 +237,6 @@ const WeeklyCalendar: React.FC<{
   onCreateSession?: () => void;
   selectedDateProp?: Date;
   onSelectedDateChange?: (d: Date) => void;
-  statues?: Map<string, string>;
 }> = ({
   currentWeek,
   sessions,
@@ -251,7 +249,6 @@ const WeeklyCalendar: React.FC<{
   onCreateSession,
   selectedDateProp,
   onSelectedDateChange,
-  statues,
 }) => {
   const { getSessionTypeColor, getRecurringColor, getTextColorForBackground } =
     useSessionColors(workspaceId);
@@ -372,7 +369,7 @@ const WeeklyCalendar: React.FC<{
                   return (
                     <div
                       key={session.id}
-                      className={`rounded-xl p-4 cursor-pointer transition-all group transform hover:-translate-y-0.5 shadow-sm border min-w-[260px] h-[110px] ${
+                      className={`rounded-xl p-4 cursor-pointer transition-all group transform hover:-translate-y-0.5 shadow-sm border min-w-[260px] ${
                         isActive
                           ? "border-emerald-200 dark:border-emerald-600/50"
                           : "bg-white border border-zinc-200 dark:bg-zinc-900/30 dark:border-zinc-800/60"
@@ -444,11 +441,6 @@ const WeeklyCalendar: React.FC<{
                             {isConcluded && (
                               <span className="bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 px-2 py-1 rounded text-xs font-medium">
                                 Concluded
-                              </span>
-                            )}
-                            {!isConcluded && statues && statues.has(session.id) && statues.get(session.id) !== "Open" && (
-                              <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-1 rounded text-xs font-medium">
-                                {statues.get(session.id)}
                               </span>
                             )}
                           </div>
@@ -556,8 +548,6 @@ const Home: pageWithLayout<pageProps> = (props) => {
   const [isVisibilityModalOpen, setIsVisibilityModalOpen] = useState(false);
   const [visibilityFilters, setVisibilityFilters] = useState<any>({});
   const [workspaceRoles, setWorkspaceRoles] = useState<any[]>([]);
-  const [isPatternEditDialogOpen, setIsPatternEditDialogOpen] = useState(false);
-  const [sessionToEdit, setSessionToEdit] = useState<any>(null);
   const router = useRouter();
   const workspaceIdForColors = Array.isArray(router.query.id)
     ? router.query.id[0]
@@ -638,23 +628,8 @@ const Home: pageWithLayout<pageProps> = (props) => {
         new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-  const handleEditSession = async (sessionId: string) => {
-    const session = allSessions.find(s => s.id === sessionId);
-    
-    if (session?.scheduleId) {
-      setSessionToEdit(session);
-      setIsPatternEditDialogOpen(true);
-    } else {
-      router.push(`/workspace/${router.query.id}/sessions/edit/${sessionId}`);
-    }
-  };
-
-  const handlePatternEditConfirm = (scope: "single" | "future" | "all") => {
-    if (!sessionToEdit) return;
-    router.push({
-      pathname: `/workspace/${router.query.id}/sessions/edit/${sessionToEdit.id}`,
-      query: { scope },
-    });
+  const handleEditSession = (sessionId: string) => {
+    router.push(`/workspace/${router.query.id}/sessions/edit/${sessionId}`);
   };
 
   const handleSessionClick = (session: any) => {
@@ -776,30 +751,23 @@ const Home: pageWithLayout<pageProps> = (props) => {
     const getAllStatues = async () => {
       const newStatues = new Map<string, string>();
       for (const session of allSessions) {
-        const sessionStart = new Date(session.date).getTime();
-        const sessionDuration = session.duration || 30;
-        const sessionEnd = sessionStart + (sessionDuration * 60 * 1000);
-        const now = new Date().getTime();
-        const minutesFromStart = (now - sessionStart) / 1000 / 60;
-        if (now > sessionEnd) {
-          newStatues.set(session.id, "Concluded");
-        } else {
-          let foundStatus = false;
-          for (const e of session.sessionType.statues.sort((a: any, b: any) => {
-            const object = JSON.parse(JSON.stringify(a));
-            const object2 = JSON.parse(JSON.stringify(b));
-            return object2.timeAfter - object.timeAfter;
-          })) {
-            const slot = JSON.parse(JSON.stringify(e));
-            if (minutesFromStart >= slot.timeAfter) {
-              newStatues.set(session.id, slot.name);
-              foundStatus = true;
-              break;
-            }
+        for (const e of session.sessionType.statues.sort((a: any, b: any) => {
+          const object = JSON.parse(JSON.stringify(a));
+          const object2 = JSON.parse(JSON.stringify(b));
+          return object2.timeAfter - object.timeAfter;
+        })) {
+          const minutes =
+            (new Date().getTime() - new Date(session.date).getTime()) /
+            1000 /
+            60;
+          const slot = JSON.parse(JSON.stringify(e));
+          if (slot.timeAfter < minutes) {
+            newStatues.set(session.id, slot.name);
+            break;
           }
-          if (!foundStatus) {
-            newStatues.set(session.id, "Open");
-          }
+        }
+        if (!newStatues.has(session.id)) {
+          newStatues.set(session.id, "Open");
         }
       }
       setStatues(newStatues);
@@ -921,8 +889,7 @@ const Home: pageWithLayout<pageProps> = (props) => {
                   <span className="hidden sm:inline">Visibility Filters</span>
                 </button>
               )}
-              {(workspace.yourPermission?.includes("sessions_scheduled") ||
-                workspace.yourPermission?.includes("sessions_unscheduled")) && (
+              {workspace.yourPermission?.includes("manage_sessions") && (
                 <button
                   onClick={() =>
                     router.push(`/workspace/${router.query.id}/sessions/new`)
@@ -962,24 +929,66 @@ const Home: pageWithLayout<pageProps> = (props) => {
                 return (
                   <div className="px-2" key={session.id}>
                     <div
-                      className={`rounded-xl p-4 cursor-pointer transition-all group transform hover:-translate-y-0.5 shadow-sm border w-[260px] h-[110px] flex flex-col overflow-hidden ${
+                      className={`rounded-xl p-4 cursor-pointer transition-all group transform hover:-translate-y-0.5 shadow-sm border min-w-[260px] ${
                         isActive
                           ? "border-emerald-200 dark:border-emerald-600/50"
                           : "bg-white border border-zinc-200 dark:bg-zinc-800/50 dark:border-zinc-800/60"
                       } backdrop-blur-sm`}
                       onClick={() => handleSessionClick(session)}
                     >
-                      <div className="flex items-start justify-between mb-auto overflow-hidden">
-                        <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between w-full">
                             <h4 className="flex-1 min-w-0 font-medium text-zinc-900 dark:text-white truncate mb-0">
                               {session.name || session.sessionType.name}
                             </h4>
+
+                            <div className="flex items-center gap-1 ml-2 z-10 flex-shrink-0 relative left-2 group-hover:left-0 transition-all">
+                              {session.owner && (
+                                <div
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-zinc-800 ${getRandomBg(
+                                    session.owner.userid.toString()
+                                  )}`}
+                                >
+                                  <img
+                                    src={
+                                      session.owner.picture ||
+                                      "/default-avatar.jpg"
+                                    }
+                                    className="w-7 h-7 rounded-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.src =
+                                        "/default-avatar.jpg";
+                                    }}
+                                  />
+                                </div>
+                              )}
+
+                              {coHost && (
+                                <div
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-zinc-800 ${getRandomBg(
+                                    coHost.user.userid.toString()
+                                  )} ${session.owner ? "-ml-2" : ""}`}
+                                >
+                                  <img
+                                    src={
+                                      coHost.user.picture ||
+                                      "/default-avatar.jpg"
+                                    }
+                                    className="w-7 h-7 rounded-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.src =
+                                        "/default-avatar.jpg";
+                                    }}
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-2 mb-2 min-h-[28px] flex-wrap">
+                          <div className="flex items-center gap-2 mb-2">
                             {isActive && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 animate-pulse flex-shrink-0">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 animate-pulse">
                                 • LIVE
                               </span>
                             )}
@@ -989,26 +998,21 @@ const Home: pageWithLayout<pageProps> = (props) => {
                                   session.type
                                 )} ${getTextColorForBackground(
                                   getSessionTypeColor(session.type)
-                                )} px-2 py-1 rounded text-xs font-medium flex-shrink-0`}
+                                )} px-2 py-1 rounded text-xs font-medium`}
                               >
                                 {session.type.charAt(0).toUpperCase() +
                                   session.type.slice(1)}
                               </span>
                             )}
                             {isConcluded && (
-                              <span className="bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 px-2 py-1 rounded text-xs font-medium flex-shrink-0">
+                              <span className="bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 px-2 py-1 rounded text-xs font-medium">
                                 Concluded
-                              </span>
-                            )}
-                            {!isConcluded && statues && statues.has(session.id) && statues.get(session.id) !== "Open" && (
-                              <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-1 rounded text-xs font-medium flex-shrink-0">
-                                {statues.get(session.id)}
                               </span>
                             )}
                           </div>
 
-                          <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400 w-full">
-                            <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
+                            <div className="flex items-center gap-1">
                               <IconClock className="w-4 h-4" />
                               {new Date(session.date).toLocaleTimeString(
                                 undefined,
@@ -1019,57 +1023,14 @@ const Home: pageWithLayout<pageProps> = (props) => {
                                 }
                               )}
                             </div>
-                            <div className="flex items-center gap-1 min-w-0">
-                              <IconUserCircle className="w-4 h-4 flex-shrink-0" />
-                              <span className="truncate">
-                                {session.owner?.username || "Unclaimed"}
-                              </span>
+                            <div className="flex items-center gap-1">
+                              <IconUserCircle className="w-4 h-4" />
+                              {session.owner?.username || "Unclaimed"}
                             </div>
                           </div>
                         </div>
 
-                        <div className="relative w-0 h-0">
-                          <div className="absolute top-0 right-0 flex items-center gap-1 z-10">
-                            {session.owner && (
-                              <div
-                                className={`w-8 h-8 min-w-[2rem] rounded-full flex items-center justify-center ring-2 ring-white dark:ring-zinc-800 ${getRandomBg(
-                                  session.owner.userid.toString()
-                                )}`}
-                              >
-                                <img
-                                  src={
-                                    session.owner.picture ||
-                                    "/default-avatar.jpg"
-                                  }
-                                  className="w-7 h-7 rounded-full object-cover"
-                                  onError={(e) => {
-                                    e.currentTarget.src =
-                                      "/default-avatar.jpg";
-                                  }}
-                                />
-                              </div>
-                            )}
-
-                            {coHost && (
-                              <div
-                                className={`w-8 h-8 min-w-[2rem] rounded-full flex items-center justify-center ring-2 ring-white dark:ring-zinc-800 ${getRandomBg(
-                                  coHost.user.userid.toString()
-                                )} ${session.owner ? "-ml-2" : ""}`}
-                              >
-                                <img
-                                  src={
-                                    coHost.user.picture ||
-                                    "/default-avatar.jpg"
-                                  }
-                                  className="w-7 h-7 rounded-full object-cover"
-                                  onError={(e) => {
-                                    e.currentTarget.src =
-                                      "/default-avatar.jpg";
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </div>
+                        <div className="relative">
                           {workspace.yourPermission &&
                             workspace.yourPermission.includes(
                               "manage_sessions"
@@ -1261,18 +1222,6 @@ const Home: pageWithLayout<pageProps> = (props) => {
             </div>
           </Dialog>
         </Transition>
-
-        {sessionToEdit && (
-          <PatternEditDialog
-            isOpen={isPatternEditDialogOpen}
-            onClose={() => {
-              setIsPatternEditDialogOpen(false);
-              setSessionToEdit(null);
-            }}
-            onConfirm={handlePatternEditConfirm}
-            session={sessionToEdit}
-          />
-        )}
       </div>
     </div>
   );

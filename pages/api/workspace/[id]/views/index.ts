@@ -10,17 +10,14 @@ async function hasManageViewsPermission(req: NextApiRequest, workspaceId: number
     include: {
       roles: {
         where: { workspaceGroupId: workspaceId },
-      },
-      workspaceMemberships: {
-        where: { workspaceGroupId: workspaceId },
+        orderBy: { isOwnerRole: "desc" },
       },
     },
   });
   if (!user || !user.roles.length) return false;
   const role = user.roles[0];
-  const membership = user.workspaceMemberships[0];
-  const isAdmin = membership?.isAdmin || false;
-  return isAdmin || (role.permissions || []).includes("manage_views");
+  // Allow if owner OR has the manage_views permission
+  return !!(role.isOwnerRole || (role.permissions || []).includes("manage_views"));
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {

@@ -22,7 +22,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const docs = await prisma.document.findMany({
       where: {
         workspaceGroupId: workspaceId,
-        requiresAcknowledgment: false,
       },
       include: {
         owner: {

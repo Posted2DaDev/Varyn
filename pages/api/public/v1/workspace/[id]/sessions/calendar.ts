@@ -21,7 +21,7 @@ export default async function handler(
       .status(400)
       .json({ success: false, error: "Missing workspace ID" });
 
-  const { startDate, endDate, category } = req.query;
+  const { startDate, endDate, type } = req.query;
 
   if (!startDate || !endDate) {
     return res
@@ -45,8 +45,8 @@ export default async function handler(
       },
     };
 
-    if (category) {
-      where.type = category as string;
+    if (type) {
+      where.sessionTypeId = type as string;
     }
 
     const sessions = await prisma.session.findMany({

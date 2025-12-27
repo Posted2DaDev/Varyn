@@ -46,7 +46,11 @@ export async function handler(
 			groupId: parseInt(req.query.id as string)
 		},
 		include: {
-			roles: true
+			roles: {
+				orderBy: {
+					isOwnerRole: 'desc'
+				}
+			}
 		}
 	});
 	if (!workspace) return res.status(404).json({ success: false, error: 'Not found' });
@@ -59,19 +63,16 @@ export async function handler(
 			roles: {
 				where: {
 					workspaceGroupId: workspace.groupId
-				}
-			},
-			workspaceMemberships: {
-				where: {
-					workspaceGroupId: workspace.groupId
+				},
+				orderBy: {
+					isOwnerRole: 'desc'
 				}
 			}
 		}
 	});
 	if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
-	const groupName = workspace.groupName || 'Unknown Group';
-	const groupLogo = workspace.groupLogo || '';
+	const groupinfo = await noblox.getGroup(workspace.groupId);
 	const themeconfig = await getConfig('theme', workspace.groupId);
 
 	const permissions = {
@@ -83,8 +84,6 @@ export async function handler(
 		'Assign users to Sessions': 'sessions_assign',
 		'Assign Self to Sessions': 'sessions_claim',
 		'Host Sessions': 'sessions_host',
-		"Create Unscheduled": "sessions_unscheduled",
-		"Create Scheduled": "sessions_scheduled",
 		"Manage sessions": "manage_sessions",
 		"Manage activity": "manage_activity",
 		"Manage quotas": "manage_quotas",
@@ -92,16 +91,11 @@ export async function handler(
 		"Manage docs": "manage_docs",
 		"Manage alliances": "manage_alliances",
 		"Admin (Manage workspace)": "admin",
-	};	
-	
-	const membership = user.workspaceMemberships[0];
-	const isAdmin = membership?.isAdmin || false;
-	
-	res.status(200).json({ success: true, permissions: user.roles[0].permissions, workspace: {
+	};	res.status(200).json({ success: true, permissions: user.roles[0].permissions, workspace: {
 		groupId: workspace.groupId,
-		groupThumbnail: groupLogo,
-		groupName: groupName,
-		yourPermission: isAdmin ? Object.values(permissions) : user.roles[0].permissions,
+		groupThumbnail: await noblox.getLogo(workspace.groupId),
+		groupName: groupinfo.name,
+		yourPermission: user.roles[0].isOwnerRole ? Object.values(permissions) : user.roles[0].permissions,
 		groupTheme: themeconfig,
 		roles: workspace.roles,
 		yourRole: user.roles[0].id,

@@ -48,18 +48,12 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
             workspaceGroupId: parseInt(id as string),
           },
         },
-        workspaceMemberships: {
-          where: {
-            workspaceGroupId: parseInt(id as string),
-          },
-        },
       },
     });
 
-    const membership = user?.workspaceMemberships?.[0];
-    const isAdmin = membership?.isAdmin || false;
+    const isOwner = user?.roles.some((role) => role.isOwnerRole);
     const isAuthor = note.authorId.toString() === req.session.userid.toString();
-    if (!isAdmin && !isAuthor) {
+    if (!isOwner && !isAuthor) {
       return res
         .status(403)
         .json({ success: false, error: "You can only delete your own notes" });

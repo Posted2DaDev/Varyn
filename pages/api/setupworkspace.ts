@@ -51,7 +51,8 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
       .json({ success: false, error: "Method not allowed" });
 
   // Log raw body for debugging
-
+  console.log("Raw request body:", req.body);
+  console.log("Request headers:", req.headers);
 
   // Ensure body is parsed
   if (!req.body || typeof req.body !== "object") {
@@ -123,27 +124,11 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
     const hashedPassword = await safeHashPassword(password);
     console.log("Password hashed successfully");
 
-    let groupName = `Group ${groupIdNumber}`;
-    let groupLogo = '';
-    
-    try {
-      const [logo, group] = await Promise.all([
-        noblox.getLogo(groupIdNumber).catch(() => ''),
-        noblox.getGroup(groupIdNumber).catch(() => null)
-      ]);
-      if (group) groupName = group.name;
-      if (logo) groupLogo = logo;
-    } catch (err) {
-      console.error('Failed to fetch group info during workspace setup:', err);
-    }
-
+    // Create workspace with validated groupIdNumber
     const workspace = await prisma.workspace
       .create({
         data: {
           groupId: groupIdNumber,
-          groupName,
-          groupLogo,
-          lastSynced: new Date()
         },
       })
       .catch((e) => {
@@ -242,6 +227,44 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
       throw new Error("Failed to create configs");
     }
 
+    // Create role in a separate transaction
+    const role = await prisma.role
+      .create({
+        data: {
+          workspaceGroupId: groupIdNumber,
+          name: "Admin",
+          isOwnerRole: true,
+          permissions: [
+            "admin",
+            "view_staff_config",
+            "manage_sessions",
+            "manage_activity",
+            "post_on_wall",
+            "manage_wall",
+            "manage_views",
+            "view_wall",
+            "view_members",
+            "sessions_assign",
+            "sessions_claim",
+            "sessions_host",
+            "manage_members",
+            "manage_quotas",
+            "manage_docs",
+            "manage_policies",
+            "view_entire_groups_activity",
+            "manage_alliances",
+            "represent_alliance",
+          ],
+        },
+      })
+      .catch((e) => {
+        console.error("Error creating role:", e);
+        throw new Error("Failed to create role");
+      });
+
+    console.log("Created role:", role);
+
+    // Create user in a separate transaction
     const user = await prisma.user
       .create({
         data: {
@@ -252,6 +275,11 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
             },
           },
           isOwner: true,
+          roles: {
+            connect: {
+              id: role.id,
+            },
+          },
         },
       })
       .catch((e) => {
@@ -260,53 +288,6 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
       });
 
     console.log("Created user:", user);
-    const defaultRole = await prisma.role
-      .create({
-        data: {
-          name: "Default",
-          workspaceGroupId: groupIdNumber,
-          permissions: [],
-          groupRoles: [],
-        },
-      })
-      .catch((e) => {
-        console.error("Error creating default role:", e);
-        throw new Error("Failed to create default role");
-      });
-
-    console.log("Created default role");
-
-    await prisma.user
-      .update({
-        where: { userid: BigInt(userid) },
-        data: {
-          roles: {
-            connect: { id: defaultRole.id },
-          },
-        },
-      })
-      .catch((e) => {
-        console.error("Error assigning role to user:", e);
-        throw new Error("Failed to assign role to user");
-      });
-
-    console.log("Assigned user to default role");
-
-    await prisma.workspaceMember
-      .create({
-        data: {
-          workspaceGroupId: groupIdNumber,
-          userId: BigInt(userid),
-          joinDate: new Date(),
-          isAdmin: true,
-        },
-      })
-      .catch((e) => {
-        console.error("Error creating workspace member:", e);
-        throw new Error("Failed to create workspace member");
-      });
-
-    console.log("Created workspace member with admin status");
 
     // Set session after all database operations are complete
     req.session.userid = userid;
@@ -317,7 +298,7 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
       userId: req.session.userid,
       username: await getUsername(req.session.userid),
       displayname: await getDisplayName(req.session.userid),
-      thumbnail: getThumbnail(req.session.userid),
+      thumbnail: await getThumbnail(req.session.userid),
       isOwner: true,
     };
 

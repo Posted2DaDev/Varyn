@@ -68,15 +68,9 @@ const ChangelogContent: React.FC<{ workspaceId: number }> = ({ workspaceId }) =>
   if (!entries.length) return <p className="text-sm text-zinc-500">No entries found.</p>;
 
   return (
-    <div className="space-y-6">
+    <>
       {entries.map((entry, idx) => (
-        <div 
-          key={idx}
-          className={clsx(
-            "pb-6",
-            idx < entries.length - 1 && "border-b border-zinc-200 dark:border-zinc-700"
-          )}
-        >
+        <div key={idx}>
           <a
             href={entry.link}
             target="_blank"
@@ -85,13 +79,13 @@ const ChangelogContent: React.FC<{ workspaceId: number }> = ({ workspaceId }) =>
           >
             {entry.title}
           </a>
-          <div className="text-xs text-zinc-400 mt-1 mb-3">{entry.pubDate}</div>
-          <div className="text-sm text-zinc-700 dark:text-zinc-300 prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-headings:my-2">
+          <div className="text-xs text-zinc-400">{entry.pubDate}</div>
+          <div className="text-sm text-zinc-700 dark:text-zinc-300">
             <ReactMarkdown>{entry.content}</ReactMarkdown>
           </div>
         </div>
       ))}
-    </div>
+    </>
   );
 };
 
@@ -108,6 +102,7 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
   const [alliesEnabled, setAlliesEnabled] = useState(false);
   const [sessionsEnabled, setSessionsEnabled] = useState(false);
   const [noticesEnabled, setNoticesEnabled] = useState(false);
+  const [leaderboardEnabled, setLeaderboardEnabled] = useState(false);
   const [policiesEnabled, setPoliciesEnabled] = useState(false);
   const [liveServersEnabled, setLiveServersEnabled] = useState(false);
   const [promotionsEnabled, setPromotionsEnabled] = useState(false);
@@ -132,27 +127,33 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
     filledIcon?: React.ElementType
     accessible?: boolean
   }[] = [
-    { name: "Home", href: `/workspace/${workspace.groupId}`, icon: IconHome, filledIcon: IconHomeFilled },
-    { name: "Wall", href: `/workspace/${workspace.groupId}/wall`, icon: IconMessage2, filledIcon: IconMessage2Filled },
-    { name: "Activity", href: `/workspace/${workspace.groupId}/activity`, icon: IconClipboardList, filledIcon: IconClipboardListFilled, accessible: true },
-    { name: "Quotas", href: `/workspace/${workspace.groupId}/quotas`, icon: IconTarget, accessible: true },
+    { name: "Home", href: "/workspace/[id]", icon: IconHome, filledIcon: IconHomeFilled },
+    { name: "Wall", href: "/workspace/[id]/wall", icon: IconMessage2, filledIcon: IconMessage2Filled },
+    { name: "Activity", href: "/workspace/[id]/activity", icon: IconClipboardList, filledIcon: IconClipboardListFilled, accessible: true },
+	...(leaderboardEnabled ? [{
+      name: "Leaderboard",
+      href: "/workspace/[id]/leaderboard",
+      icon: IconTrophy,
+      filledIcon: IconTrophyFilled,
+      accessible: workspace.yourPermission.includes("view_entire_groups_activity"),
+    }] : []),
    ...(noticesEnabled ? [{
       name: "Notices",
-      href: `/workspace/${workspace.groupId}/notices`,
+      href: "/workspace/[id]/notices",
       icon: IconClock,
       filledIcon: IconClockFilled,
       accessible: true,
     }] : []),
     ...(alliesEnabled ? [{
       name: "Alliances",
-      href: `/workspace/${workspace.groupId}/alliances`,
+      href: "/workspace/[id]/alliances",
       icon: IconRosetteDiscountCheck,
       filledIcon: IconRosetteDiscountCheckFilled,
       accessible: true,
     }] : []),
     ...(sessionsEnabled ? [{
       name: "Sessions",
-      href: `/workspace/${workspace.groupId}/sessions`,
+      href: "/workspace/[id]/sessions",
       icon: IconBell,
       filledIcon: IconBellFilled,
       accessible: true,
@@ -166,7 +167,7 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
   ];
 
   const gotopage = (page: string) => {
-    router.push(page)
+    router.push(page.replace("[id]", workspace.groupId.toString()))
     setIsMobileMenuOpen(false)
   }
 
@@ -201,30 +202,117 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
   }, [showChangelog, changelog.length]);
 
   useEffect(() => {
-    fetch(`/api/workspace/${workspace.groupId}/settings/general/configuration`)
+    // Fetch the config for docs/guides
+    fetch(`/api/workspace/${workspace.groupId}/settings/general/guides`)
       .then(res => res.json())
       .then(data => {
-        setDocsEnabled(data.value.guides?.enabled ?? false);
-		setAlliesEnabled(data.value.allies?.enabled ?? false);
-		setSessionsEnabled(data.value.sessions?.enabled ?? false);
-		setNoticesEnabled(data.value.notices?.enabled ?? false);
-		setPoliciesEnabled(data.value.policies?.enabled ?? false);
+        let enabled = false;
+        let val = data.value ?? data;
+        if (typeof val === "string") {
+          try {
+            val = JSON.parse(val);
+          } catch {
+            val = {};
+          }
+        }
+        enabled =
+          typeof val === "object" && val !== null && "enabled" in val
+            ? (val as { enabled?: boolean }).enabled ?? false
+            : false;
+        setDocsEnabled(enabled);
       })
       .catch(() => setDocsEnabled(false));
   }, [workspace.groupId]);
 
   useEffect(() => {
-    if (policiesEnabled) {
-      fetch(`/api/workspace/${workspace.groupId}/policies/pending`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setPendingPolicyCount(data.count);
-          }
-        })
-        .catch(() => setPendingPolicyCount(0));
-    }
-  }, [workspace.groupId, policiesEnabled]);
+    fetch(`/api/workspace/${workspace.groupId}/settings/general/ally`)
+      .then(res => res.json())
+      .then(data => {
+        let enabled = false;
+        let val = data.value ?? data;
+        if (typeof val === "string") {
+          try { val = JSON.parse(val); } catch { val = {}; }
+        }
+        enabled =
+          typeof val === "object" && val !== null && "enabled" in val
+            ? (val as { enabled?: boolean }).enabled ?? false
+            : false;
+        setAlliesEnabled(enabled);
+      })
+      .catch(() => setAlliesEnabled(false));
+  }, [workspace.groupId]);
+
+  useEffect(() => {
+    fetch(`/api/workspace/${workspace.groupId}/settings/general/sessions`)
+      .then(res => res.json())
+      .then(data => {
+        let enabled = false;
+        let val = data.value ?? data;
+        if (typeof val === "string") {
+          try { val = JSON.parse(val); } catch { val = {}; }
+        }
+        enabled =
+          typeof val === "object" && val !== null && "enabled" in val
+            ? (val as { enabled?: boolean }).enabled ?? false
+            : false;
+        setSessionsEnabled(enabled);
+      })
+      .catch(() => setSessionsEnabled(false));
+  }, [workspace.groupId]);
+
+    useEffect(() => {
+    fetch(`/api/workspace/${workspace.groupId}/settings/general/notices`)
+      .then(res => res.json())
+      .then(data => {
+        let enabled = false;
+        let val = data.value ?? data;
+        if (typeof val === "string") {
+          try { val = JSON.parse(val); } catch { val = {}; }
+        }
+        enabled =
+          typeof val === "object" && val !== null && "enabled" in val
+            ? (val as { enabled?: boolean }).enabled ?? false
+            : false;
+        setNoticesEnabled(enabled);
+      })
+      .catch(() => setNoticesEnabled(false));
+  }, [workspace.groupId]);
+
+  useEffect(() => {
+    fetch(`/api/workspace/${workspace.groupId}/settings/general/leaderboard`)
+      .then(res => res.json())
+      .then(data => {
+        let enabled = false;
+        let val = data.value ?? data;
+        if (typeof val === "string") {
+          try { val = JSON.parse(val); } catch { val = {}; }
+        }
+        enabled =
+          typeof val === "object" && val !== null && "enabled" in val
+            ? (val as { enabled?: boolean }).enabled ?? false
+            : false;
+        setLeaderboardEnabled(enabled);
+      })
+      .catch(() => setLeaderboardEnabled(false));
+  }, [workspace.groupId]);
+
+  useEffect(() => {
+    fetch(`/api/workspace/${workspace.groupId}/settings/general/policies`)
+      .then(res => res.json())
+      .then(data => {
+        let enabled = false;
+        let val = data.value ?? data;
+        if (typeof val === "string") {
+          try { val = JSON.parse(val); } catch { val = {}; }
+        }
+        enabled =
+          typeof val === "object" && val !== null && "enabled" in val
+            ? (val as { enabled?: boolean }).enabled ?? false
+            : false;
+        setPoliciesEnabled(enabled);
+      })
+      .catch(() => setPoliciesEnabled(false));
+  }, [workspace.groupId]);
 
   useEffect(() => {
     fetch(`/api/workspace/${workspace.groupId}/settings/general/live_servers`)
@@ -381,7 +469,7 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
                     key={page.name}
                     onClick={() => gotopage(page.href)}
                     className={clsx(
-                      "w-full gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative",
+                      "w-full gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-all duration-300",
                       router.asPath === page.href.replace("[id]", workspace.groupId.toString())
                         ? "bg-[color:rgb(var(--group-theme)/0.1)] text-[color:rgb(var(--group-theme))] font-semibold"
                         : "text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-700",
@@ -399,23 +487,11 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
                       <div className="flex items-center gap-2">
                         <span>{page.name}</span>
                         {page.name === "Policies" && (
-                          <>
-                            <span className="px-1.5 py-0.5 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
-                              BETA
-                            </span>
-                            {pendingPolicyCount > 0 && (
-                              <span className="px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
-                                {pendingPolicyCount}
-                              </span>
-                            )}
-                          </>
+                          <span className="px-1.5 py-0.5 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
+                            BETA
+                          </span>
                         )}
                       </div>
-                    )}
-                    {isCollapsed && page.name === "Policies" && pendingPolicyCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                        {pendingPolicyCount}
-                      </span>
                     )}
                   </button>
                 )
@@ -490,6 +566,7 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
                 </Menu.Item>
               </Menu.Items>
             </Menu>
+          
             {!isCollapsed && (
               <button
                 onClick={() => {
@@ -500,16 +577,13 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
                 © Copyright Notices
               </button>
             )}
+
             {!isCollapsed && (
-              <div className="mt-1 text-xs text-zinc-500">
-                <a href="https://docs.planetaryapp.us" target="_blank" rel="noopener noreferrer" className="hover:text-primary">Documentation</a>
+              <div className="mt-2 text-xs text-zinc-500">
+                Orbit v{packageJson.version} - <button onClick={() => setShowChangelog(true)} className="mt-2 text-left text-xs text-zinc-500 hover:text-primary">Changelog</button>
               </div>
             )}
-            {!isCollapsed && (
-              <div className="mt-1 text-xs text-zinc-500">
-                Orbit v{packageJson.version} - <button onClick={() => setShowChangelog(true)} className="text-xs text-zinc-500 hover:text-primary">Changelog</button>
-              </div>
-            )}		
+			
           </div>
 
           <Dialog
@@ -643,21 +717,15 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
                     <IconX className="w-5 h-5 text-zinc-500" />
                   </button>
                 </div>
-                <div className="space-y-6 max-h-96 overflow-y-auto">
+                <div className="space-y-4 max-h-96 overflow-y-auto">
                   {changelog.length === 0 && <p className="text-sm text-zinc-500">Loading...</p>}
                   {changelog.map((entry, idx) => (
-                    <div 
-                      key={idx}
-                      className={clsx(
-                        "pb-6",
-                        idx < changelog.length - 1 && "border-b border-zinc-200 dark:border-zinc-700"
-                      )}
-                    >
+                    <div key={idx}>
                       <a href={entry.link} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">
                         {entry.title}
                       </a>
-                      <div className="text-xs text-zinc-400 mt-1 mb-3">{entry.pubDate}</div>
-                      <div className="text-sm text-zinc-700 dark:text-zinc-300 prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-headings:my-2">
+                      <div className="text-xs text-zinc-400">{entry.pubDate}</div>
+                      <div className="text-sm text-zinc-700 dark:text-zinc-300">
                         <ReactMarkdown>{entry.content}</ReactMarkdown>
                       </div>
                     </div>

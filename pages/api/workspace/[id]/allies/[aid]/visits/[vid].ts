@@ -30,24 +30,20 @@ const withAllyPermissionCheck = (handler: any) => {
 				roles: {
 					where: {
 						workspaceGroupId: workspaceId
-					}
-				},
-				workspaceMemberships: {
-					where: {
-						workspaceGroupId: workspaceId
+					},
+					orderBy: {
+						isOwnerRole: 'desc'
 					}
 				}
 			}
 		});
 		
 		if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
-		const membership = user.workspaceMemberships[0];
-		const isAdmin = membership?.isAdmin || false;
 		const userrole = user.roles[0];
 		if (!userrole) return res.status(401).json({ success: false, error: 'Unauthorized' });
 		
 		// Check if user has management permissions
-		if (isAdmin) return handler(req, res);
+		if (userrole.isOwnerRole) return handler(req, res);
 		if (userrole.permissions?.includes('manage_alliances')) return handler(req, res);
 		
 		// Check if user is a representative of this specific ally
@@ -98,22 +94,16 @@ export async function handler(
 		try {
 			if(!req.body.name || !req.body.time) return res.status(400).json({ success: false, error: 'Missing data' })
 
-			const updateData: any = {
-				name: req.body.name,
-				time: new Date(req.body.time)
-			};
-
-			if (req.body.participants !== undefined) {
-				updateData.participants = req.body.participants.map((p: number) => BigInt(p));
-			}
-
 			// @ts-ignore
 			const visit = await prisma.allyVisit.update({
 				where: {
 					// @ts-ignore
 					id: req.query.vid
 				},
-				data: updateData
+				data: {
+					name: req.body.name,
+					time: new Date(req.body.time)
+				}
 			})
 			
 	

@@ -34,20 +34,12 @@ export default withSessionRoute(async function handler(
           workspaceGroupId,
         },
       },
-      workspaceMemberships: {
-        where: {
-          workspaceGroupId,
-        },
-      },
     },
   });
 
-  const membership = user?.workspaceMemberships?.[0];
-  const isAdmin = membership?.isAdmin || false;
   const hasManageMembersPermission =
-    isAdmin ||
-    (user?.roles?.some((role) => role.permissions?.includes("manage_notices")) ??
-    false);
+    user?.roles?.some((role) => role.permissions?.includes("manage_members")) ??
+    false;
 
   if (!hasManageMembersPermission) {
     return res

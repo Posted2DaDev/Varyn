@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { setConfig, getConfig } from "@/utils/configEngine";
 import { logAudit } from '@/utils/logs';
 import { getUsername } from '@/utils/userinfoEngine';
-import prisma from "@/utils/database";
+import { withPermissionCheck } from '@/utils/permissionsManager';
 
 type SessionColors = {
   recurring: string;
@@ -18,9 +18,9 @@ type Data = {
   colors?: SessionColors;
 };
 
-export default handler;
+export default withPermissionCheck(handler, 'admin');
 
-async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
+export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
   const workspaceId = parseInt(req.query.id as string);
 
   if (!workspaceId) {
@@ -51,32 +51,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
   }
 
   if (req.method === "PATCH") {
-    const userId = (req as any).session?.userid;
-    if (!userId) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-
-    const user = await prisma.user.findFirst({
-      where: { userid: BigInt(userId) },
-      include: {
-        roles: {
-          where: { workspaceGroupId: workspaceId },
-        },
-        workspaceMemberships: {
-          where: { workspaceGroupId: workspaceId },
-        },
-      },
-    });
-
-    const membership = user?.workspaceMemberships?.[0];
-    const isAdmin = membership?.isAdmin || false;
-    const userRole = user?.roles?.[0];
-    const hasAdminPermission = isAdmin || (userRole?.permissions?.includes('admin') ?? false);
-    
-    if (!hasAdminPermission) {
-      return res.status(403).json({ success: false, error: "Admin access required." });
-    }
-
     const colors = req.body.colors as SessionColors;
     if (!colors) {
       return res

@@ -24,30 +24,7 @@ export async function handler(
 		}
 	});
 	if (!role) return res.status(404).json({ success: false, error: 'Role not found' });
-	
-	const groupRoles = req.body.groupRoles || [];
-	if (groupRoles.length > 0) {
-		const conflictingRoles = await prisma.role.findMany({
-			where: {
-				workspaceGroupId: parseInt(req.query.id as string),
-				id: {
-					not: req.query.roleid as string
-				},
-				groupRoles: {
-					hasSome: groupRoles
-				}
-			}
-		});
-		
-		if (conflictingRoles.length > 0) {
-			const conflictingRankIds = conflictingRoles.flatMap(r => r.groupRoles.filter(gr => groupRoles.includes(gr)));
-			return res.status(400).json({ 
-				success: false, 
-				error: `Each rank can only be assigned to one role.` 
-			});
-		}
-	}
-	
+	if (role.isOwnerRole) return res.status(403).json({ success: false, error: 'Owner role cannot be modified' });
 	await prisma.role.update({
 		where: {
 			id: (req.query.roleid as string)
@@ -55,8 +32,7 @@ export async function handler(
 		data: {
 			name: req.body.name || 'Untitled Role',
 			permissions: req.body.permissions || [],
-			groupRoles: req.body.groupRoles || [],
-			color: req.body.color || null
+			groupRoles: req.body.groupRoles || []
 		}
 	});
 

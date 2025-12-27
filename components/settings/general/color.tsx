@@ -40,9 +40,6 @@ const Color: FC<props> = ({ triggerToast, isSidebarExpanded }) => {
     if (workspace?.groupTheme) {
       setSelectedColor(workspace.groupTheme);
     }
-  }, [workspace?.groupTheme]);
-
-  useEffect(() => {
     loadSessionColors();
   }, [workspace?.groupTheme]);
 
@@ -213,9 +210,9 @@ const Color: FC<props> = ({ triggerToast, isSidebarExpanded }) => {
             {sessionColorTypes.map((colorType) => (
               <div
                 key={colorType.key}
-                className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 p-4 flex flex-col gap-3"
+                className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex-1">
                     <h4 className="font-medium text-zinc-900 dark:text-white text-sm">
                       {colorType.label}
@@ -227,7 +224,7 @@ const Color: FC<props> = ({ triggerToast, isSidebarExpanded }) => {
                   <div className="flex items-center gap-2">
                     <span
                       className={clsx(
-                        "px-2.5 py-1 rounded-full text-xs text-white font-medium shadow-sm",
+                        "px-2 py-1 rounded text-xs text-white font-medium",
                         sessionColors[colorType.key]
                       )}
                     >
@@ -242,9 +239,9 @@ const Color: FC<props> = ({ triggerToast, isSidebarExpanded }) => {
                   onChange={(e) =>
                     updateSessionColor(colorType.key, e.target.value)
                   }
-                  className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-600 rounded-md bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-600 rounded-md bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
-                  {sessionColorOptions.map((color) => (
+                  {colors.map((color) => (
                     <option key={color} value={color}>
                       {getColorDisplayName(color)}
                     </option>

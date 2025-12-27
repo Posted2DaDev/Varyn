@@ -54,7 +54,6 @@ export default withPermissionCheck(
         ownerId,
         userAssignments,
         timezoneOffset,
-        statues,
       } = req.body;
       if (!date) {
         return res.status(400).json({ error: "Session date is required" });
@@ -63,9 +62,11 @@ export default withPermissionCheck(
       try {
         let sessionDate: Date;
         if (time) {
-          const parsedDate = new Date(date + "T" + time + ":00Z");
+          const localDateTime = new Date(date + "T" + time + ":00");
           const offsetMinutes = timezoneOffset || 0;
-          sessionDate = new Date(parsedDate.getTime() + offsetMinutes * 60000);
+          sessionDate = new Date(
+            localDateTime.getTime() + offsetMinutes * 60000
+          );
         } else {
           sessionDate = new Date(date);
         }
@@ -111,20 +112,18 @@ export default withPermissionCheck(
           },
         });
 
-        // Update session type description if provided
         if (description !== undefined) {
-          await prisma.sessionType.update({
-            where: { id: currentSession.sessionTypeId },
-            data: { description: description || null },
-          });
-        }
-
-        // Update session type statues if provided
-        if (statues !== undefined) {
-          await prisma.sessionType.update({
-            where: { id: currentSession.sessionTypeId },
-            data: { statues: statues },
-          });
+          if (updateAll && currentSession.scheduleId) {
+            await prisma.sessionType.update({
+              where: { id: currentSession.sessionTypeId },
+              data: { description: description || null },
+            });
+          } else {
+            await prisma.sessionType.update({
+              where: { id: currentSession.sessionTypeId },
+              data: { description: description || null },
+            });
+          }
         }
 
         if (userAssignments !== undefined) {

@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withSessionRoute } from "@/lib/withSession";
-import crypto from "crypto";
+import jwt from "jsonwebtoken";
 
 type Data = {
   success: boolean;
-  intercom_user_hash?: string;
+  intercom_user_jwt?: string;
   error?: string;
   debug?: any;
 };
@@ -31,16 +31,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
   }
 
   try {
-    const hash = crypto
-      .createHmac("sha256", intercomApiSecret)
-      .update(userId)
-      .digest("hex");
-    return res.status(200).json({ success: true, intercom_user_hash: hash });
+    const payload = { user_id: userId };
+    const token = jwt.sign(payload, intercomApiSecret, { expiresIn: "1h" });
+    return res.status(200).json({ success: true, intercom_user_jwt: token });
   } catch (e: any) {
-    console.error("Error generating intercom hash:", e);
+    console.error("Error generating intercom JWT:", e);
     return res
       .status(500)
-      .json({ success: false, error: "Failed to generate hash" });
+      .json({ success: false, error: "Failed to generate token" });
   }
 }
 

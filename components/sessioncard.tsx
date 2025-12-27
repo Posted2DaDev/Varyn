@@ -26,22 +26,22 @@ const isMobile = () => {
 };
 
 const BG_COLORS = [
-  "bg-rose-300",
-  "bg-lime-300",
-  "bg-teal-200",
-  "bg-amber-300",
-  "bg-rose-200",
-  "bg-lime-200",
-  "bg-green-100",
-  "bg-red-100",
-  "bg-yellow-200",
-  "bg-amber-200",
-  "bg-emerald-300",
-  "bg-green-300",
-  "bg-red-300",
-  "bg-emerald-200",
-  "bg-green-200",
   "bg-red-200",
+  "bg-green-200",
+  "bg-emerald-200",
+  "bg-red-300",
+  "bg-green-300",
+  "bg-emerald-300",
+  "bg-amber-200",
+  "bg-yellow-200",
+  "bg-red-100",
+  "bg-green-100",
+  "bg-lime-200",
+  "bg-rose-200",
+  "bg-amber-300",
+  "bg-teal-200",
+  "bg-lime-300",
+  "bg-rose-300",
 ];
 
 function getRandomBg(userid: string, username?: string) {
@@ -334,23 +334,6 @@ const SessionModal: React.FC<SessionModalProps> = ({
   );
   const isActive = now >= sessionStart && now <= sessionEnd;
   const isConcluded = now > sessionEnd;
-  
-  const getCurrentStatus = () => {
-    if (isConcluded) return "Concluded";
-    
-    const minutesFromStart = (now.getTime() - sessionStart.getTime()) / 1000 / 60;
-    const statues = (session.sessionType as any)?.statues || [];
-    
-    const sortedStatues = [...statues].sort((a: any, b: any) => b.timeAfter - a.timeAfter);
-    for (const status of sortedStatues) {
-      if (minutesFromStart >= status.timeAfter) {
-        return status.name;
-      }
-    }
-    return null;
-  };
-  
-  const currentStatus = getCurrentStatus();
 
   return (
     <div 
@@ -408,11 +391,6 @@ const SessionModal: React.FC<SessionModalProps> = ({
                 {isConcluded && (
                   <span className="bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 px-2 py-1 rounded text-xs font-medium">
                     Concluded
-                  </span>
-                )}
-                {!isConcluded && currentStatus && currentStatus !== "Open" && (
-                  <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-1 rounded text-xs font-medium">
-                    {currentStatus}
                   </span>
                 )}
               </div>

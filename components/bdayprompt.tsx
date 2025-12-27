@@ -11,14 +11,8 @@ export const WorkspaceBirthdayPrompt: React.FC<WorkspaceBirthdayPromptProps> = (
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState('');
   const [day, setDay] = useState('');
-  const [timezone, setTimezone] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
-
-  useEffect(() => {
-    const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    setTimezone(detectedTimezone);
-  }, []);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -59,9 +53,9 @@ export const WorkspaceBirthdayPrompt: React.FC<WorkspaceBirthdayPromptProps> = (
     setLoading(true);
     try {
       if (skip) {
-        await axios.post(`/api/workspace/${workspaceId}/birthday`, { day: 0, month: 0, timezone });
+        await axios.post(`/api/workspace/${workspaceId}/birthday`, { day: 0, month: 0 });
       } else {
-        await axios.post(`/api/workspace/${workspaceId}/birthday`, { day: Number(day), month: Number(month), timezone });
+        await axios.post(`/api/workspace/${workspaceId}/birthday`, { day: Number(day), month: Number(month) });
       }
       setOpen(false);
     } finally {

@@ -77,20 +77,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         : sessionEnd,
     }))
 
-    const uniqueUsersMap = new Map()
-    concurrentUsers.forEach((user) => {
-      if (!uniqueUsersMap.has(user.userId)) {
-        uniqueUsersMap.set(user.userId, user)
-      }
-    })
-    const uniqueUsers = Array.from(uniqueUsersMap.values())
-
     return res.status(200).json(
       JSON.parse(
         JSON.stringify(
           {
-            users: uniqueUsers,
-            totalConcurrent: uniqueUsers.length,
+            users: concurrentUsers,
+            totalConcurrent: concurrentUsers.length,
           },
           (key, value) =>
             typeof value === "bigint" ? value.toString() : value

@@ -29,16 +29,8 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
           workspaceGroupId: parseInt(req.query.id as string),
         },
       },
-      workspaceMemberships: {
-        where: {
-          workspaceGroupId: parseInt(req.query.id as string),
-        },
-      },
     },
   });
-
-  const membership = user?.workspaceMemberships[0];
-  const isAdmin = membership?.isAdmin || false;
 
   const session = await prisma.session.findFirst({
     where: {
@@ -59,7 +51,7 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
     !session?.sessionType.hostingRoles.find(
       (r) => r.id === user?.roles[0].id
     ) &&
-    !isAdmin &&
+    !user?.roles[0].isOwnerRole &&
     !user?.roles[0].permissions.includes("admin")
   )
     return res

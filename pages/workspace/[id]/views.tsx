@@ -36,7 +36,6 @@ import axios from "axios";
 import { useRouter } from "next/router";
 import moment from "moment";
 import { withPermissionCheckSsr } from "@/utils/permissionsManager";
-import { getConfig } from "@/utils/configEngine";
 import {
   IconArrowLeft,
   IconFilter,
@@ -67,8 +66,6 @@ import {
   IconTarget,
   IconCalendarWeekFilled,
   IconSpeakerphone,
-  IconPencil,
-  IconDeviceFloppy,
 } from "@tabler/icons-react";
 
 type User = {
@@ -86,33 +83,14 @@ type User = {
   idleMinutes: number;
   hostedSessions: { length: number };
   sessionsAttended: number;
-  allianceVisits: number;
   messages: number;
   registered: boolean;
   quota: boolean;
 };
 
 export const getServerSideProps = withPermissionCheckSsr(
-  async ({ params, req }: GetServerSidePropsContext) => {
+  async ({ params }: GetServerSidePropsContext) => {
     const workspaceGroupId = parseInt(params?.id as string);
-    const currentUserId = req.session?.userid;
-    const currentUser = await prisma.user.findFirst({
-      where: { userid: BigInt(currentUserId) },
-      include: {
-        workspaceMemberships: {
-          where: { workspaceGroupId },
-        },
-        roles: {
-          where: { workspaceGroupId },
-        },
-      },
-    });
-    
-    const membership = currentUser?.workspaceMemberships?.[0];
-    const isAdmin = membership?.isAdmin || false;
-    const userRole = currentUser?.roles?.[0];
-    const hasManageViewsPerm = userRole?.permissions?.includes("manage_views") || false;
-    
     const lastReset = await prisma.activityReset.findFirst({
       where: {
         workspaceGroupId,
@@ -124,9 +102,6 @@ export const getServerSideProps = withPermissionCheckSsr(
 
     const startDate = lastReset?.resetAt || new Date("2025-01-01");
     const currentDate = new Date();
-
-    const activityConfig = await getConfig("activity", workspaceGroupId);
-    const idleTimeEnabled = activityConfig?.idleTimeEnabled ?? true;
 
     const allUsers = await prisma.user.findMany({
       where: {
@@ -186,24 +161,19 @@ export const getServerSideProps = withPermissionCheckSsr(
       allActivity
         .filter((x) => BigInt(x.userId) == user.userid && !x.active)
         .forEach((session) => {
-          const sessionDuration =
+          ms.push(
             (session.endTime?.getTime() as number) -
-            session.startTime.getTime();
-          const idleTimeMs =
-            idleTimeEnabled && session.idleTime
-              ? Number(session.idleTime) * 60000
-              : 0;
-          ms.push(sessionDuration - idleTimeMs);
+              session.startTime.getTime() -
+              (session.idleTime ? Number(session.idleTime) * 60000 : 0) // Convert idle minutes to milliseconds
+          );
         });
 
       const ims: number[] = [];
-      if (idleTimeEnabled) {
-        allActivity
-          .filter((x: any) => BigInt(x.userId) == user.userid)
-          .forEach((s: any) => {
-            ims.push(Number(s.idleTime));
-          });
-      }
+      allActivity
+        .filter((x: any) => BigInt(x.userId) == user.userid)
+        .forEach((s: any) => {
+          ims.push(Number(s.idleTime));
+        });
 
       const messages: number[] = [];
       allActivity
@@ -288,50 +258,6 @@ export const getServerSideProps = withPermissionCheckSsr(
         }
       ).length;
 
-      const allUserSessionsIds = new Set([
-        ...ownedSessions.map((s) => s.id),
-        ...allSessionParticipations.map((p) => p.sessionid),
-      ]);
-      const sessionsLogged = allUserSessionsIds.size;
-
-      const sessionsByType: Record<string, number> = {};
-      const allUserSessions = [
-        ...ownedSessions.map((s) => ({ id: s.id, type: s.type })),
-        ...allSessionParticipations.map((p) => ({
-          id: p.sessionid,
-          type: (p.session as any).type,
-        })),
-      ];
-      const uniqueSessionsMap = new Map(
-        allUserSessions.map((s) => [s.id, s.type])
-      );
-      for (const [, sessionType] of uniqueSessionsMap) {
-        const type = sessionType || "other";
-        sessionsByType[type] = (sessionsByType[type] || 0) + 1;
-      }
-
-      const cohostSessions = allSessionParticipations.filter((p) => {
-        const slots = p.session.sessionType.slots as any[];
-        const slotName = slots[p.slot]?.name || "";
-        return (
-          p.roleID.toLowerCase().includes("co-host") ||
-          slotName.toLowerCase().includes("co-host")
-        );
-      }).length;
-
-      const allianceVisits = await prisma.allyVisit.count({
-        where: {
-          ally: {
-            workspaceGroupId: workspaceGroupId,
-          },
-          time: {
-            gte: startDate,
-            lte: currentDate,
-          },
-          OR: [{ hostId: userId }, { participants: { has: userId } }],
-        },
-      });
-
       const currentWallPosts = await prisma.wallPost.findMany({
         where: {
           authorId: userId,
@@ -364,24 +290,10 @@ export const getServerSideProps = withPermissionCheckSsr(
               currentValue = totalActiveMinutes + totalAdjustmentMinutes;
               break;
             case "sessions_hosted":
-              if (userQuota.sessionType && userQuota.sessionType !== "all") {
-                currentValue = sessionsByType[userQuota.sessionType] || 0;
-              } else {
-                currentValue = sessionsHosted;
-              }
+              currentValue = sessionsHosted;
               break;
             case "sessions_attended":
               currentValue = sessionsAttended;
-              break;
-            case "sessions_logged":
-              if (userQuota.sessionType && userQuota.sessionType !== "all") {
-                currentValue = sessionsByType[userQuota.sessionType] || 0;
-              } else {
-                currentValue = sessionsLogged;
-              }
-              break;
-            case "alliance_visits":
-              currentValue = allianceVisits;
               break;
           }
 
@@ -405,7 +317,7 @@ export const getServerSideProps = withPermissionCheckSsr(
       computedUsers.push({
         info: {
           userId: Number(user.userid),
-          picture: getThumbnail(user.userid),
+          picture: await getThumbnail(user.userid),
           username: user.username,
         },
         book: user.book,
@@ -417,7 +329,6 @@ export const getServerSideProps = withPermissionCheckSsr(
         idleMinutes: ims.length ? Math.round(ims.reduce((p, c) => p + c)) : 0,
         hostedSessions: { length: sessionsHosted },
         sessionsAttended: sessionsAttended,
-        allianceVisits: allianceVisits,
         messages: messages.length
           ? Math.round(messages.reduce((p, c) => p + c))
           : 0,
@@ -444,24 +355,19 @@ export const getServerSideProps = withPermissionCheckSsr(
       allActivity
         .filter((y: any) => BigInt(y.userId) == BigInt(x.userId) && !y.active)
         .forEach((session) => {
-          const sessionDuration =
+          ms.push(
             (session.endTime?.getTime() as number) -
-            session.startTime.getTime();
-          const idleTimeMs =
-            idleTimeEnabled && session.idleTime
-              ? Number(session.idleTime) * 60000
-              : 0;
-          ms.push(sessionDuration - idleTimeMs);
+              session.startTime.getTime() -
+              (session.idleTime ? Number(session.idleTime) * 60000 : 0) // Convert idle minutes to milliseconds
+          );
         });
 
       const ims: number[] = [];
-      if (idleTimeEnabled) {
-        allActivity
-          .filter((y: any) => BigInt(y.userId) == BigInt(x.userId))
-          .forEach((s: any) => {
-            ims.push(Number(s.idleTime));
-          });
-      }
+      allActivity
+        .filter((y: any) => BigInt(y.userId) == BigInt(x.userId))
+        .forEach((s: any) => {
+          ims.push(Number(s.idleTime));
+        });
 
       const messages: number[] = [];
       allActivity
@@ -566,19 +472,6 @@ export const getServerSideProps = withPermissionCheckSsr(
       const totalActiveMs =
         (ms.length ? ms.reduce((p, c) => p + c) : 0) + totalAdjustmentMs;
 
-      const allianceVisits = await prisma.allyVisit.count({
-        where: {
-          ally: {
-            workspaceGroupId: workspaceGroupId,
-          },
-          time: {
-            gte: startDate,
-            lte: currentDate,
-          },
-          OR: [{ hostId: userId }, { participants: { has: userId } }],
-        },
-      });
-
       const quota = false;
       computedUsers.push({
         info: {
@@ -587,15 +480,14 @@ export const getServerSideProps = withPermissionCheckSsr(
           username: x.user.username,
         },
         book: [],
-        wallPosts: currentWallPosts,
+        wallPosts: currentWallPosts, // Use current period wall posts
         inactivityNotices: [],
         sessions: allSessionParticipations,
         rankID: x.user.ranks[0]?.rankId ? Number(x.user.ranks[0]?.rankId) : 0,
         minutes: Math.round(totalActiveMs / 60000),
-        idleMinutes: ims.length ? Math.round(ims.reduce((p, c) => p + c)) : 0,
+        idleMinutes: ims.length ? Math.round(ims.reduce((p, c) => p + c)) : 0, // Already in minutes from Roblox
         hostedSessions: { length: sessionsHosted },
         sessionsAttended: sessionsAttended,
-        allianceVisits: allianceVisits,
         messages: messages.length
           ? Math.round(messages.reduce((p, c) => p + c))
           : 0,
@@ -612,8 +504,6 @@ export const getServerSideProps = withPermissionCheckSsr(
           )
         ) as User[],
         ranks: ranks,
-        isAdmin: isAdmin,
-        hasManageViewsPerm: hasManageViewsPerm,
       },
     };
   },
@@ -653,10 +543,8 @@ type pageProps = {
     rank: number;
     name: string;
   }[];
-  isAdmin: boolean;
-  hasManageViewsPerm: boolean;
 };
-const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasManageViewsPerm }) => {
+const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
   const [login, setLogin] = useRecoilState(loginState);
   const [workspace, setWorkspace] = useRecoilState(workspacestate);
   const router = useRouter();
@@ -687,8 +575,6 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
   const [saveName, setSaveName] = useState("");
   const [saveColor, setSaveColor] = useState("");
   const [saveIcon, setSaveIcon] = useState("");
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [originalViewConfig, setOriginalViewConfig] = useState<any>(null);
 
   const ICON_OPTIONS: { key: string; Icon: any; title?: string }[] = [
     { key: "star", Icon: IconStar, title: "Star" },
@@ -719,7 +605,16 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
   };
 
   const hasManageViews = () => {
-    return isAdmin || hasManageViewsPerm;
+    try {
+      const role = workspace?.roles?.find(
+        (r: any) => r.id === workspace?.yourRole
+      );
+      const isOwner = !!(role && role.isOwnerRole);
+      const hasPerm = !!workspace?.yourPermission?.includes("manage_views");
+      return isOwner || hasPerm;
+    } catch (e) {
+      return false;
+    }
   };
 
   const columnHelper = createColumnHelper<User>();
@@ -795,19 +690,12 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
       header: "Hosted sessions",
       cell: (row) => {
         const hosted = row.getValue() as any;
-        const len =
-          hosted && typeof hosted.length === "number" ? hosted.length : 0;
+        const len = hosted && typeof hosted.length === "number" ? hosted.length : 0;
         return <p className="dark:text-white">{len}</p>;
       },
     }),
     columnHelper.accessor("sessionsAttended", {
       header: "Sessions Attended",
-      cell: (row) => {
-        return <p className="dark:text-white">{row.getValue()}</p>;
-      },
-    }),
-    columnHelper.accessor("allianceVisits", {
-      header: "Alliance Visits",
       cell: (row) => {
         return <p className="dark:text-white">{row.getValue()}</p>;
       },
@@ -869,7 +757,6 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
     select: true,
     hostedSessions: false,
     sessionsAttended: false,
-    allianceVisits: false,
     inactivityNotices: false,
     messages: false,
     registered: false,
@@ -949,12 +836,6 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
     }
 
     setColumnVisibility(view.columnVisibility || {});
-    setOriginalViewConfig({
-      filters: JSON.parse(JSON.stringify(filtersField)),
-      columnVisibility: JSON.parse(JSON.stringify(view.columnVisibility || {})),
-      sorting: JSON.parse(JSON.stringify(filtersField?.sorting || [])),
-    });
-    setIsEditMode(false);
   };
 
   const resetToDefault = () => {
@@ -969,15 +850,12 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
       select: true,
       hostedSessions: false,
       sessionsAttended: false,
-      allianceVisits: false,
       inactivityNotices: false,
       messages: false,
       registered: false,
       quota: false,
     });
     setSorting([]);
-    setIsEditMode(false);
-    setOriginalViewConfig(null);
   };
 
   const openSaveDialog = () => {
@@ -1044,7 +922,6 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
           select: true,
           hostedSessions: false,
           sessionsAttended: false,
-          allianceVisits: false,
           inactivityNotices: false,
           messages: false,
           registered: false,
@@ -1059,78 +936,13 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
     setViewToDelete(null);
   };
 
-  const hasUnsavedChanges = () => {
-    if (!isEditMode || !originalViewConfig) return false;
-
-    const currentFilters = {
-      filters: colFilters,
-      sorting: sorting,
-    };
-
-    const filtersChanged =
-      JSON.stringify(currentFilters) !==
-      JSON.stringify(originalViewConfig.filters);
-    const columnsChanged =
-      JSON.stringify(columnVisibility) !==
-      JSON.stringify(originalViewConfig.columnVisibility);
-
-    return filtersChanged || columnsChanged;
-  };
-
-  const handleEditOrSaveView = async () => {
-    if (!selectedViewId) return;
-
-    if (isEditMode && hasUnsavedChanges()) {
-      try {
-        const filtersPayload: any = {
-          filters: colFilters,
-        };
-
-        if (sorting && Array.isArray(sorting) && sorting.length > 0) {
-          filtersPayload.sorting = sorting;
-        }
-
-        const payload = {
-          filters: filtersPayload,
-          columnVisibility,
-        };
-
-        await axios.patch(
-          `/api/workspace/${router.query.id}/views/${selectedViewId}`,
-          payload
-        );
-
-        setSavedViews((prev) =>
-          prev.map((v) =>
-            v.id === selectedViewId
-              ? { ...v, filters: filtersPayload, columnVisibility }
-              : v
-          )
-        );
-
-        setOriginalViewConfig({
-          filters: JSON.parse(JSON.stringify(filtersPayload)),
-          columnVisibility: JSON.parse(JSON.stringify(columnVisibility)),
-          sorting: JSON.parse(JSON.stringify(sorting)),
-        });
-
-        setIsEditMode(false);
-        toast.success("View updated!");
-      } catch (e) {
-        toast.error("Failed to update view.");
-      }
-    } else {
-      setIsEditMode(true);
-    }
-  };
-
   useEffect(() => {
     const filteredUsers = usersInGroup.filter((user) => {
       let valid = true;
-
+      
       for (const filter of colFilters) {
         if (!filter.value) continue;
-
+        
         if (filter.column === "username") {
           if (filter.filter === "equal") {
             if (user.info.username !== filter.value) {
@@ -1309,7 +1121,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
           }
         }
       }
-
+      
       return valid;
     });
     setUsers(filteredUsers);
@@ -1382,8 +1194,6 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
       return "Sessions Attended";
     } else if (columnId == "hostedSessions") {
       return "Hosted Sessions";
-    } else if (columnId == "allianceVisits") {
-      return "Alliance Visits";
     } else if (columnId == "book") {
       return "Warnings";
     } else if (columnId == "wallPosts") {
@@ -1521,9 +1331,8 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
                   <span className="w-7 h-7 rounded-md flex items-center justify-center bg-zinc-100 dark:bg-zinc-700/30 text-zinc-700 dark:text-zinc-200">
                     <IconUsers className="w-4 h-4" />
                   </span>
-                  <span className="text-sm font-medium text-zinc-900 dark:text-white">
-                    {savedViews.find((s) => s.id === selectedViewId)?.name ||
-                      "Views"}
+                  <span className="text-sm font-medium">
+                    {savedViews.find((s) => s.id === selectedViewId)?.name || "Views"}
                   </span>
                 </div>
 
@@ -1540,9 +1349,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
 
               <div className="space-y-2 mt-3">
                 {savedViews.length === 0 && (
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    No saved views
-                  </p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">No saved views</p>
                 )}
                 {savedViews.map((v) => (
                   <div
@@ -1569,10 +1376,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
                         style={{ background: v.color || "#e5e7eb" }}
                       >
                         {v.icon ? (
-                          renderIcon(
-                            v.icon,
-                            "w-4 h-4 text-zinc-900 dark:text-white"
-                          )
+                          renderIcon(v.icon, "w-4 h-4 text-zinc-900 dark:text-white")
                         ) : (
                           <span className="text-sm font-medium text-zinc-900 dark:text-white">
                             {(v.name || "").charAt(0).toUpperCase()}
@@ -1614,9 +1418,9 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
                     {({ open }) => (
                       <>
                         <Popover.Button
-                          disabled={selectedViewId !== null && !isEditMode}
+                          disabled={selectedViewId !== null}
                           className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-all ${
-                            selectedViewId !== null && !isEditMode
+                            selectedViewId !== null
                               ? "bg-zinc-100 dark:bg-zinc-700/50 border-zinc-200 dark:border-zinc-600 text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
                               : open
                               ? "bg-zinc-100 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white ring-2 ring-[#ff0099]/50"
@@ -1677,9 +1481,9 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
                     {({ open }) => (
                       <>
                         <Popover.Button
-                          disabled={selectedViewId !== null && !isEditMode}
+                          disabled={selectedViewId !== null}
                           className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-all ${
-                            selectedViewId !== null && !isEditMode
+                            selectedViewId !== null
                               ? "bg-zinc-100 dark:bg-zinc-700/50 border-zinc-200 dark:border-zinc-600 text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
                               : open
                               ? "bg-zinc-100 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white ring-2 ring-[#ff0099]/50"
@@ -1772,25 +1576,6 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
                     </div>
                   )}
                 </div>
-
-                {selectedViewId !== null && hasManageViews() && (
-                  <button
-                    onClick={handleEditOrSaveView}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-all bg-zinc-50 dark:bg-zinc-700/50 border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white"
-                  >
-                    {hasUnsavedChanges() ? (
-                      <>
-                        <IconDeviceFloppy className="w-4 h-4" />
-                        <span>Save</span>
-                      </>
-                    ) : (
-                      <>
-                        <IconPencil className="w-4 h-4" />
-                        <span>Edit</span>
-                      </>
-                    )}
-                  </button>
-                )}
               </div>
 
               {table.getSelectedRowModel().flatRows.length > 0 && (
@@ -2225,22 +2010,22 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks, isAdmin, hasMan
 };
 
 const BG_COLORS = [
-  "bg-rose-300",
-  "bg-lime-300",
-  "bg-teal-200",
-  "bg-amber-300",
-  "bg-rose-200",
-  "bg-lime-200",
-  "bg-green-100",
-  "bg-red-100",
-  "bg-yellow-200",
-  "bg-amber-200",
-  "bg-emerald-300",
-  "bg-green-300",
-  "bg-red-300",
-  "bg-emerald-200",
-  "bg-green-200",
   "bg-red-200",
+  "bg-green-200",
+  "bg-emerald-200",
+  "bg-red-300",
+  "bg-green-300",
+  "bg-emerald-300",
+  "bg-amber-200",
+  "bg-yellow-200",
+  "bg-red-100",
+  "bg-green-100",
+  "bg-lime-200",
+  "bg-rose-200",
+  "bg-amber-300",
+  "bg-teal-200",
+  "bg-lime-300",
+  "bg-rose-300",
 ];
 
 function getRandomBg(userid: string, username?: string) {

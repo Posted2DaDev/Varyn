@@ -25,6 +25,8 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
       },
     })
 
+	console.log("User data:", user)
+
     if (!user) {
       return res.status(404).json({ success: false, error: "User not found" })
     }

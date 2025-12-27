@@ -39,17 +39,12 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
         where: {
           workspaceGroupId: parseInt(req.query.id as string),
         },
-      },
-      workspaceMemberships: {
-        where: {
-          workspaceGroupId: parseInt(req.query.id as string),
+        orderBy: {
+          isOwnerRole: "desc",
         },
       },
     },
   });
-
-  const membership = user?.workspaceMemberships[0];
-  const isAdmin = membership?.isAdmin || false;
 
   const schedule = await prisma.schedule.findFirst({
     where: {
@@ -75,12 +70,13 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
     hostingRoleIds.includes(ur.id)
   );
 
+  const hasOwnerRole = userRoles.some((ur: any) => ur.isOwnerRole);
   const hasAdminPerm = userRoles.some(
     (ur: any) =>
       Array.isArray(ur.permissions) && ur.permissions.includes("admin")
   );
 
-  if (!hasHostingRole && !isAdmin && !hasAdminPerm) {
+  if (!hasHostingRole && !hasOwnerRole && !hasAdminPerm) {
     return res.status(403).json({
       success: false,
       error: "You do not have permission to claim.",
@@ -116,10 +112,22 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
             },
             data: {
               users: {
-                create: {
-                  userid: BigInt(req.session.userid),
-                  roleID: slotId,
-                  slot: slotNum,
+                upsert: {
+                  where: {
+                    userid_sessionid: {
+                      userid: BigInt(req.session.userid),
+                      sessionid: findSession.id,
+                    },
+                  },
+                  update: {
+                    roleID: slotId,
+                    slot: slotNum,
+                  },
+                  create: {
+                    userid: BigInt(req.session.userid),
+                    roleID: slotId,
+                    slot: slotNum,
+                  },
                 },
               },
             },

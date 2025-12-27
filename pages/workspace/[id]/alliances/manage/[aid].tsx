@@ -77,7 +77,7 @@ export const getServerSideProps = withPermissionCheckSsr(
         return {
           ...user,
           userid: Number(user.userid),
-          thumbnail: getThumbnail(user.userid),
+          thumbnail: await getThumbnail(user.userid),
         };
       })
     );
@@ -105,24 +105,13 @@ export const getServerSideProps = withPermissionCheckSsr(
           ...rep,
           userid: Number(rep.userid),
           username: await getUsername(rep.userid),
-          thumbnail: getThumbnail(rep.userid),
+          thumbnail: await getThumbnail(rep.userid),
         };
       })
     );
 
     let infoAlly = ally;
     infoAlly.reps = infoReps;
-    const eligibleIds = new Set(infoUsers.map((u: any) => Number(u.userid)));
-    const repIds = new Set(infoReps.map((r: any) => Number(r.userid)));
-    const allDbIdsRaw = await prisma.user.findMany({
-      select: { userid: true },
-    });
-    const extraIds = allDbIdsRaw
-      .map((u: any) => Number(u.userid))
-      .filter((id: number) => !eligibleIds.has(id) && !repIds.has(id));
-    const missingReps = infoReps.filter(
-      (r: any) => !eligibleIds.has(Number(r.userid))
-    );
     // @ts-ignore
     const visits = await prisma.allyVisit.findMany({
       where: {
@@ -137,11 +126,8 @@ export const getServerSideProps = withPermissionCheckSsr(
           ...visit,
           hostId: Number(visit.hostId),
           hostUsername: await getUsername(visit.hostId),
-          hostThumbnail: getThumbnail(visit.hostId),
+          hostThumbnail: await getThumbnail(visit.hostId),
           time: new Date(visit.time).toISOString(),
-          participants: visit.participants
-            ? visit.participants.map((p: bigint) => Number(p))
-            : [],
         };
       })
     );
@@ -187,7 +173,6 @@ export const getServerSideProps = withPermissionCheckSsr(
         infoUsers,
         infoAlly,
         infoVisits,
-        missingReps,
         canEdit: true,
       },
     };
@@ -205,13 +190,11 @@ type Rep = {
 type Visit = {
   name: string;
   time: Date;
-  participants?: string[];
 };
 
 type EditVisit = {
   name: string;
   time: string;
-  participants?: string[];
 };
 
 type pageProps = InferGetServerSidePropsType<typeof getServerSideProps>;
@@ -226,22 +209,22 @@ const ManageAlly: pageWithLayout<pageProps> = (props) => {
   const canEdit: boolean = Boolean(props.canEdit);
 
   const BG_COLORS = [
-    "bg-rose-300",
-    "bg-lime-300",
-    "bg-teal-200",
-    "bg-amber-300",
-    "bg-rose-200",
-    "bg-lime-200",
-    "bg-green-100",
-    "bg-red-100",
-    "bg-yellow-200",
-    "bg-amber-200",
-    "bg-emerald-300",
-    "bg-green-300",
-    "bg-red-300",
-    "bg-emerald-200",
-    "bg-green-200",
     "bg-red-200",
+    "bg-green-200",
+    "bg-emerald-200",
+    "bg-red-300",
+    "bg-green-300",
+    "bg-emerald-300",
+    "bg-amber-200",
+    "bg-yellow-200",
+    "bg-red-100",
+    "bg-green-100",
+    "bg-lime-200",
+    "bg-rose-200",
+    "bg-amber-300",
+    "bg-teal-200",
+    "bg-lime-300",
+    "bg-rose-300",
   ];
 
   function getRandomBg(userid: string, username?: string) {
@@ -343,18 +326,11 @@ const ManageAlly: pageWithLayout<pageProps> = (props) => {
 
   const [isOpen, setIsOpen] = useState(false);
   const [isEditOpen, setEditOpen] = useState(false);
-  const [selectedParticipants, setSelectedParticipants] = useState<number[]>(
-    []
-  );
-  const [editSelectedParticipants, setEditSelectedParticipants] = useState<
-    number[]
-  >([]);
 
   const [editContent, setEditContent] = useState({
     name: "",
     time: "",
     id: "",
-    participants: [] as number[],
   });
 
   const handleVisitChange = async (
@@ -429,13 +405,11 @@ const ManageAlly: pageWithLayout<pageProps> = (props) => {
       .post(`/api/workspace/${id}/allies/${ally.id}/visits`, {
         name: name,
         time: time,
-        participants: selectedParticipants,
       })
       .then((req) => {});
     toast.promise(axiosPromise, {
       loading: "Creating visit...",
       success: () => {
-        setSelectedParticipants([]);
         router.reload();
         return "Visit created!";
       },
@@ -443,48 +417,21 @@ const ManageAlly: pageWithLayout<pageProps> = (props) => {
     });
   };
 
-  const editVisit = async (
-    visitId: any,
-    visitName: any,
-    visitTime: any,
-    visitParticipants?: number[]
-  ) => {
-    // Format the time for datetime-local input (YYYY-MM-DDTHH:MM)
-    const formattedTime = new Date(visitTime).toISOString().slice(0, 16);
-
-    setEditContent({
-      name: visitName,
-      time: formattedTime,
-      id: visitId,
-      participants: visitParticipants || [],
-    });
-    setEditSelectedParticipants(visitParticipants || []);
-
-    // Reset the form with the new values
-    editform.reset({
-      name: visitName,
-      time: formattedTime,
-    });
-
+  const editVisit = async (visitId: any, visitName: any) => {
     setEditOpen(true);
+    setEditContent({ ...editContent, name: visitName, id: visitId });
   };
 
   const updateVisit = async () => {
-    const formValues = editform.getValues();
     const axiosPromise = axios
       .patch(
         `/api/workspace/${id}/allies/${ally.id}/visits/${editContent.id}`,
-        {
-          name: formValues.name,
-          time: formValues.time,
-          participants: editSelectedParticipants,
-        }
+        { name: editContent.name, time: editContent.time }
       )
       .then((req) => {});
     toast.promise(axiosPromise, {
       loading: "Updating visit...",
       success: () => {
-        setEditSelectedParticipants([]);
         router.reload();
         return "Visit updated!";
       },
@@ -568,44 +515,6 @@ const ManageAlly: pageWithLayout<pageProps> = (props) => {
                             type="datetime-local"
                             {...visitform.register("time", { required: true })}
                           />
-                          <div>
-                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                              Participants
-                            </label>
-                            <div className="max-h-48 overflow-y-auto border border-zinc-200 dark:border-zinc-600 rounded-lg p-2 bg-white dark:bg-zinc-700">
-                              {users.map((user: any) => (
-                                <label
-                                  key={user.userid}
-                                  className="flex items-center gap-2 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-600 rounded cursor-pointer"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedParticipants.includes(
-                                      Number(user.userid)
-                                    )}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedParticipants([
-                                          ...selectedParticipants,
-                                          Number(user.userid),
-                                        ]);
-                                      } else {
-                                        setSelectedParticipants(
-                                          selectedParticipants.filter(
-                                            (id) => id !== Number(user.userid)
-                                          )
-                                        );
-                                      }
-                                    }}
-                                    className="rounded border-zinc-300 text-primary focus:ring-primary"
-                                  />
-                                  <span className="text-sm text-zinc-900 dark:text-white">
-                                    {user.username}
-                                  </span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
                         </div>
                         <input type="submit" className="hidden" />
                       </form>
@@ -686,44 +595,6 @@ const ManageAlly: pageWithLayout<pageProps> = (props) => {
                             type="datetime-local"
                             {...editform.register("time")}
                           />
-                          <div>
-                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                              Participants
-                            </label>
-                            <div className="max-h-48 overflow-y-auto border border-zinc-200 dark:border-zinc-600 rounded-lg p-2 bg-white dark:bg-zinc-700">
-                              {users.map((user: any) => (
-                                <label
-                                  key={user.userid}
-                                  className="flex items-center gap-2 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-600 rounded cursor-pointer"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={editSelectedParticipants.includes(
-                                      Number(user.userid)
-                                    )}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setEditSelectedParticipants([
-                                          ...editSelectedParticipants,
-                                          Number(user.userid),
-                                        ]);
-                                      } else {
-                                        setEditSelectedParticipants(
-                                          editSelectedParticipants.filter(
-                                            (id) => id !== Number(user.userid)
-                                          )
-                                        );
-                                      }
-                                    }}
-                                    className="rounded border-zinc-300 text-primary focus:ring-primary"
-                                  />
-                                  <span className="text-sm text-zinc-900 dark:text-white">
-                                    {user.username}
-                                  </span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
                         </div>
                         <input type="submit" className="hidden" />
                       </form>
@@ -795,14 +666,7 @@ const ManageAlly: pageWithLayout<pageProps> = (props) => {
                         <div
                           className={`w-8 h-8 p-0.5 rounded-full flex items-center justify-center ${getRandomBg(
                             rep.userid
-                          )} border-2 ${
-                            (props as any).missingReps?.some(
-                              (m: any) =>
-                                Number(m.userid) === Number(rep.userid)
-                            )
-                              ? "border-amber-400 opacity-70"
-                              : "border-white"
-                          } hover:scale-110 transition-transform`}
+                          )} border-2 border-white hover:scale-110 transition-transform`}
                         >
                           <img
                             src={rep.thumbnail}
@@ -864,12 +728,7 @@ const ManageAlly: pageWithLayout<pageProps> = (props) => {
                       <>
                         <IconBrandDiscord className="w-5 h-5 text-indigo-500" />
                         <a
-                          href={
-                            discordServer.startsWith("http://") ||
-                            discordServer.startsWith("https://")
-                              ? discordServer
-                              : `https://${discordServer}`
-                          }
+                          href={discordServer}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-primary hover:text-primary/80 underline"
@@ -925,44 +784,6 @@ const ManageAlly: pageWithLayout<pageProps> = (props) => {
                           </span>
                         </label>
                       ))}
-
-                      {(props as any).missingReps
-                        ?.filter((m: any) => reps.includes(Number(m.userid)))
-                        .map((m: any) => (
-                          <label
-                            key={`missing-${m.userid}`}
-                            className="flex items-center gap-3 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              value={m.userid}
-                              checked={reps.includes(Number(m.userid))}
-                              onChange={handleCheckboxChange}
-                              className="rounded border-gray-300 text-primary focus:ring-primary"
-                            />
-                            <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center ${getRandomBg(
-                                String(m.userid)
-                              )} overflow-hidden opacity-70`}
-                            >
-                              <img
-                                src={m.thumbnail || "/default-avatar.jpg"}
-                                className="w-full h-full object-cover"
-                                alt={m.username}
-                                style={{ background: "transparent" }}
-                                onError={(e) =>
-                                  (e.currentTarget.src = "/default-avatar.jpg")
-                                }
-                              />
-                            </div>
-                            <span className="text-sm text-zinc-900 dark:text-white">
-                              {m.username}
-                              <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
-                                (not in workspace)
-                              </span>
-                            </span>
-                          </label>
-                        ))}
                     </div>
                   </>
                 ) : (
@@ -970,17 +791,10 @@ const ManageAlly: pageWithLayout<pageProps> = (props) => {
                     {ally.reps && ally.reps.length > 0 ? (
                       ally.reps.map((rep: any, index: number) => (
                         <div
-                          key={`rep-${index}`}
+                          key={index}
                           className="text-sm text-zinc-700 dark:text-zinc-300"
                         >
                           • {rep.username}
-                          {(props as any).missingReps?.some(
-                            (m: any) => Number(m.userid) === Number(rep.userid)
-                          ) && (
-                            <span className="ml-2 text-xs text-amber-500">
-                              (not in workspace)
-                            </span>
-                          )}
                         </div>
                       ))
                     ) : (
@@ -1266,49 +1080,11 @@ const ManageAlly: pageWithLayout<pageProps> = (props) => {
                               .toString()
                               .padStart(2, "0")}
                           </p>
-                          {visit.participants &&
-                            visit.participants.length > 0 && (
-                              <div className="mt-2">
-                                <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                                  Participants ({visit.participants.length})
-                                </p>
-                                <div className="flex flex-wrap gap-1">
-                                  {visit.participants
-                                    .slice(0, 5)
-                                    .map((participantId: number) => {
-                                      const participant = users.find(
-                                        (u: any) =>
-                                          Number(u.userid) === participantId
-                                      );
-                                      return participant ? (
-                                        <span
-                                          key={participantId}
-                                          className="text-xs bg-zinc-200 dark:bg-zinc-600 text-zinc-700 dark:text-zinc-300 px-2 py-0.5 rounded"
-                                        >
-                                          {participant.username}
-                                        </span>
-                                      ) : null;
-                                    })}
-                                  {visit.participants.length > 5 && (
-                                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                                      +{visit.participants.length - 5} more
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
                         </div>
                         {canEdit && (
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() =>
-                                editVisit(
-                                  visit.id,
-                                  visit.name,
-                                  visit.time,
-                                  visit.participants
-                                )
-                              }
+                              onClick={() => editVisit(visit.id, visit.name)}
                               className="p-1 text-zinc-400 hover:text-primary transition-colors"
                             >
                               <IconPencil className="w-4 h-4" />

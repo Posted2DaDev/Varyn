@@ -103,17 +103,16 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
               userid: BigInt(req.session.userid),
             },
             include: {
-              workspaceMemberships: {
+              roles: {
                 where: {
                   workspaceGroupId: workspaceGroupId,
+                  isOwnerRole: true,
                 },
               },
             },
           });
 
-          const adminMembership = adminUser?.workspaceMemberships[0];
-          const isAdmin = adminMembership?.isAdmin || false;
-          if (!isAdmin) {
+          if (!adminUser?.roles.length) {
             return res.status(403).json({
               success: false,
               error:
@@ -178,17 +177,16 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
                     userid: BigInt(req.session.userid),
                   },
                   include: {
-                    workspaceMemberships: {
+                    roles: {
                       where: {
                         workspaceGroupId: workspaceGroupId,
+                        isOwnerRole: true,
                       },
                     },
                   },
                 });
 
-                const adminMembership = adminUser?.workspaceMemberships[0];
-                const isAdmin = adminMembership?.isAdmin || false;
-                if (!isAdmin) {
+                if (!adminUser?.roles.length) {
                   return res.status(403).json({
                     success: false,
                     error:
@@ -394,18 +392,20 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
               }
             }
 
-            await prisma.user.update({
-              where: {
-                userid: BigInt(userId),
-              },
-              data: {
-                roles: {
-                  connect: {
-                    id: role.id,
+            if (!role.isOwnerRole) {
+              await prisma.user.update({
+                where: {
+                  userid: BigInt(userId),
+                },
+                data: {
+                  roles: {
+                    connect: {
+                      id: role.id,
+                    },
                   },
                 },
-              },
-            });
+              });
+            }
           }
         }
       } catch (rankUpdateError) {

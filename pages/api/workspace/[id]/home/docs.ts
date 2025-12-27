@@ -30,24 +30,14 @@ export async function handler(
 				where: {
 					workspaceGroupId: id
 				}
-			},
-			workspaceMemberships: {
-				where: {
-					workspaceGroupId: id
-				}
 			}
 		}
 	});
 	if (!user?.roles?.length) return res.status(403).json({ success: false, error: 'You do not have permission to view this workspace.' });
-	
-	const membership = user.workspaceMemberships[0];
-	const isAdmin = membership?.isAdmin || false;
-	
-	if (user.roles[0].permissions.includes('manage_docs') || isAdmin) {
+	if (user.roles[0].permissions.includes('manage_docs') || user.roles[0].isOwnerRole) {
 		const docs = await prisma.document.findMany({
 			where: {
-				workspaceGroupId: id,
-				isTrainingDocument: true
+				workspaceGroupId: id
 			},
 			include: {
 				owner: {
@@ -64,7 +54,6 @@ export async function handler(
 	const docs = await prisma.document.findMany({
 		where: {
 			workspaceGroupId: id,
-			isTrainingDocument: true,
 			roles: {
 				some: {
 					id: user.roles[0].id
