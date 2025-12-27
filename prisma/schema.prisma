@@ -28,6 +28,7 @@ model workspace {
   externalServices  workspaceExternalServices?
   members           workspaceMember[]
   policyLinks       PolicyShareableLink[]
+  promotions        Promotion[]
 }
 
 model config {
@@ -80,6 +81,7 @@ model user {
   roles                role[]                 @relation("roleTouser")
   policyAcknowledgments PolicyAcknowledgment[]
   createdPolicyLinks   PolicyShareableLink[]
+  promotionsAuthored   Promotion[]            @relation("PromotionRecommender")
 }
 
 model userInfo {
@@ -110,6 +112,8 @@ model role {
   SessionType      SessionType[] @relation("SessionTypeTorole")
   documents        document[]    @relation("documentTorole")
   members          user[]        @relation("roleTouser")
+  promotionsAsCurrent    Promotion[] @relation("PromotionCurrentRole")
+  promotionsAsRecommended Promotion[] @relation("PromotionRecommendedRole")
 }
 
 model wallPost {
@@ -476,4 +480,28 @@ model PolicyShareableLink {
   @@index([documentId])
   @@index([workspaceGroupId])
   @@index([createdById])
+}
+
+model Promotion {
+  id               String    @id @unique @default(uuid()) @db.Uuid
+  workspaceGroupId Int
+  recommenderId    BigInt
+  targetUserId     BigInt
+  currentRoleId    String   @db.Uuid
+  recommendedRoleId String   @db.Uuid
+  reason           String
+  upvotes          Int       @default(0)
+  downvotes        Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  workspace        workspace @relation(fields: [workspaceGroupId], references: [groupId])
+  recommender      user      @relation("PromotionRecommender", fields: [recommenderId], references: [userid])
+  currentRole      role      @relation("PromotionCurrentRole", fields: [currentRoleId], references: [id])
+  recommendedRole  role      @relation("PromotionRecommendedRole", fields: [recommendedRoleId], references: [id])
+
+  @@index([workspaceGroupId])
+  @@index([createdAt])
+  @@index([currentRoleId])
+  @@index([recommendedRoleId])
 }

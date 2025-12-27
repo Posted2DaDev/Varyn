@@ -1,10 +1,8 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { fetchworkspace, getConfig, setConfig } from '@/utils/configEngine'
+import { getConfig } from '@/utils/configEngine'
 import prisma, { role } from '@/utils/database';
-import { withSessionRoute } from '@/lib/withSession'
 import { withPermissionCheck } from '@/utils/permissionsManager'
-import { getUsername, getThumbnail, getDisplayName } from '@/utils/userinfoEngine'
 import * as noblox from 'noblox.js'
 
 type Data = {
@@ -27,7 +25,9 @@ type Data = {
 			noticesEnabled: boolean
 			policiesEnabled: boolean
 			liveServersEnabled: boolean
+			promotionsEnabled: boolean
 			widgets: string[]
+			coverImage?: string | null
 		}
 	}
 }
@@ -45,18 +45,19 @@ export async function handler(
 	const time = new Date()
 	
 	if (!id) return res.status(400).json({ success: false, error: 'No id provided' })
-	if (isNaN(Number(id))) return res.status(400).json({ success: false, error: 'Invalid id provided' })
+	if (Number.isNaN(Number(id))) return res.status(400).json({ success: false, error: 'Invalid id provided' })
 	
 	let workspace = await prisma.workspace.findUnique({
 		where: {
-			groupId: parseInt((id as string))
+			groupId: Number.parseInt((id as string))
 		}
 	})
 
 	if (!workspace) return res.status(400).json({ success: false, error: 'Workspace not found' })
-	console.log(`Workspace found after ${new Date().getTime() - time.getTime()}ms`)
+	console.log(`Workspace found after ${Date.now() - time.getTime()}ms`)
 	const themeconfig = await getConfig('customization', workspace.groupId)
-	console.log(`Theme config found after ${new Date().getTime() - time.getTime()}ms`)
+	const homeConfig = await getConfig('home', workspace.groupId)
+	console.log(`Theme config found after ${Date.now() - time.getTime()}ms`)
 	const roles = await prisma.role.findMany({
 		where: {
 			workspaceGroupId: workspace.groupId
@@ -65,7 +66,7 @@ export async function handler(
 			isOwnerRole: 'desc'
 		}
 	})
-	console.log(`Roles found after ${new Date().getTime() - time.getTime()}ms`)
+	console.log(`Roles found after ${Date.now() - time.getTime()}ms`)
 	let groupinfo = await noblox.getGroup(workspace.groupId)
 
 	const user = await prisma.user.findUnique({
@@ -83,7 +84,7 @@ export async function handler(
 			}
 		}
 	})
-	console.log(`User found after ${new Date().getTime() - time.getTime()}ms`)
+	console.log(`User found after ${Date.now() - time.getTime()}ms`)
 
 	if (!user) return res.status(401).json({ success: false, error: 'Not logged in' })
 	if (!user.roles.length) return res.status(401).json({ success: false, error: 'Not logged in' })
@@ -104,6 +105,8 @@ export async function handler(
 		"Manage docs": "manage_docs",
 		"Manage alliances": "manage_alliances",
 		"View Live Servers": "view_servers",
+		"View Promotions": "view_promotions",
+		"Manage Promotions": "manage_promotions",
 		"Admin (Manage workspace)": "admin",
 	};	
 	
@@ -123,7 +126,9 @@ export async function handler(
 			noticesEnabled: (await getConfig('notices', workspace.groupId))?.enabled || false,
 			policiesEnabled: (await getConfig('policies', workspace.groupId))?.enabled || false,
 			liveServersEnabled: (await getConfig('live_servers', workspace.groupId))?.enabled || false,
-			widgets: (await getConfig('home', workspace.groupId))?.widgets || []
+			promotionsEnabled: (await getConfig('promotions', workspace.groupId))?.enabled || false,
+			widgets: homeConfig?.widgets || [],
+			coverImage: homeConfig?.coverImage || null,
 		}
 	} })
 }

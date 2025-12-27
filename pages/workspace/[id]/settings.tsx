@@ -2,7 +2,7 @@
 
 import type { pageWithLayout } from "@/layoutTypes"
 import { loginState } from "@/state"
-import { IconChevronRight, IconHome, IconLock, IconFlag, IconKey, IconServer, IconBellExclamation } from "@tabler/icons-react"
+import { IconChevronRight, IconHome, IconLock, IconFlag, IconKey, IconServer, IconBellExclamation, IconPalette, IconActivity } from "@tabler/icons-react"
 import Permissions from "@/components/settings/permissions"
 import Workspace from "@/layouts/workspace"
 import { useRecoilState } from "recoil"
@@ -91,9 +91,33 @@ const SECTIONS = {
   general: {
     name: "General",
     icon: IconHome,
-    description: "Basic workspace settings and preferences",
+    description: "Workspace name, description and basic settings",
     components: Object.entries(All)
-      .filter(([key]) => key === "Color" || key === "home" || key === "Activity")
+      .filter(([key]) => key === "home")
+      .map(([key, Component]) => ({
+        key,
+        component: Component,
+        title: Component.title,
+      })),
+  },
+  theme: {
+    name: "Appearance",
+    icon: IconPalette,
+    description: "Customize your workspace colors and theme",
+    components: Object.entries(All)
+      .filter(([key]) => key === "Color")
+      .map(([key, Component]) => ({
+        key,
+        component: Component,
+        title: Component.title,
+      })),
+  },
+  activity: {
+    name: "Activity",
+    icon: IconActivity,
+    description: "Manage activity tracking and quotas",
+    components: Object.entries(All)
+      .filter(([key]) => key === "Activity")
       .map(([key, Component]) => ({
         key,
         component: Component,
@@ -105,7 +129,7 @@ const SECTIONS = {
     icon: IconFlag,
     description: "Enable or disable workspace features",
     components: Object.entries(All)
-      .filter(([key]) => key === "Guide" || key === "Sessions" || key === "Alliances" || key === "Leaderboard" || key === "Notices" || key === "Policies" || key === "LiveServers")
+      .filter(([key]) => key === "Guide" || key === "Sessions" || key === "Alliances" || key === "Leaderboard" || key === "Notices" || key === "Policies" || key === "LiveServers" || key === "Promotions")
       .map(([key, Component]) => ({
         key,
         component: Component,
@@ -207,8 +231,8 @@ const Settings: pageWithLayout<Props> = ({ users, roles, grouproles }) => {
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Navigation Sidebar */}
           <div className="w-full lg:w-64 flex-shrink-0">
-            <div className="bg-white dark:bg-zinc-800 rounded-lg shadow-sm p-3">
-              <nav className="space-y-1">
+            <div className="space-y-2">
+              <nav className="space-y-2">
                 {Object.entries(SECTIONS).map(([key, section]) => {
                   const Icon = section.icon
                   return (
@@ -216,21 +240,23 @@ const Settings: pageWithLayout<Props> = ({ users, roles, grouproles }) => {
                       key={key}
                       onClick={() => setActiveSection(key)}
                       className={clsx(
-                        "w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                        "w-full flex items-center gap-2 px-3 py-3 text-sm font-medium rounded-lg transition-all active:scale-[0.98]",
                         activeSection === key
-                          ? "text-primary bg-primary/10 dark:bg-primary/20"
-                          : "text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700",
+                          ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-100 shadow-sm"
+                          : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700/50",
                       )}
                     >
-                      <Icon size={18} />
-                      <span>{section.name}</span>
-                      <IconChevronRight
-                        size={16}
-                        className={clsx(
-                          "ml-auto transition-transform text-zinc-400 dark:text-zinc-300",
-                          activeSection === key ? "rotate-90" : "",
-                        )}
-                      />
+                      <div className={clsx(
+                        "h-8 w-8 grid place-content-center rounded-md transition-colors flex-shrink-0",
+                        activeSection === key
+                          ? "bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-100"
+                          : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400"
+                      )}>
+                        <Icon size={18} />
+                      </div>
+                      <div className="text-left flex-1">
+                        <div className="text-sm font-medium">{section.name}</div>
+                      </div>
                     </button>
                   )
                 })}

@@ -24,7 +24,6 @@ async function getServersForPlaceId(placeId: number | string) {
   const res = await fetchWithTimeout(url, undefined, 10000)
   if (!res.ok) throw new Error(`Servers request failed: ${res.status}`)
   const body = await res.json()
-console.log(body)
   // body.data expected
   const servers = Array.isArray(body.data) ? body.data.map((s: any) => ({
     id: s.id,
@@ -103,8 +102,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
         // Optionally fetch universe metadata for a nicer name (non-fatal)
         const meta = await fetchUniverseDetails(universeId)
-        const resolvedName = meta?.name || name ||  `Universe ${universeId}`
-
+        const resolvedName = meta?.name || name || `Universe ${universeId}`
         const servers = await getServersForPlaceId(configuredId)
         return { name: resolvedName, placeId: configuredId, universeId, servers }
       } catch (err: any) {

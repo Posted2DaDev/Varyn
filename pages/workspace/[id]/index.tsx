@@ -9,7 +9,7 @@ import Notices from "@/components/home/notices"
 import Docs from "@/components/home/docs"
 import Policies from "@/components/home/policies"
 import randomText from "@/utils/randomText"
-import wall from "@/components/home/wall"
+import Wall from "@/components/home/wall"
 import StickyNoteAnnouncement from "@/components/sticky-note-announcement"
 import Birthdays from "@/components/birthdays"
 import NewToTeam from "@/components/newmembers"
@@ -19,6 +19,7 @@ import ComplianceOverviewWidget from "@/components/ComplianceOverviewWidget"
 import { useRecoilState } from "recoil"
 import { useMemo, useEffect, useState } from "react"
 import { useRouter } from "next/router"
+import axios from "axios"
 import {
   IconHome,
   IconWall,
@@ -53,10 +54,14 @@ const Home: pageWithLayout = () => {
   const [titleVisible, setTitleVisible] = useState(false)
   const [loading, setLoading] = useState(true)
   const [policiesEnabled, setPoliciesEnabled] = useState(false)
+  const [coverImage, setCoverImage] = useState<string | null>(null)
+
+  const ws = workspace as any
+  const user = login as any
 
   const widgets: Record<string, WidgetConfig> = {
     wall: {
-      component: wall,
+      component: Wall,
       icon: IconWall,
       title: "Wall",
       description: "Latest messages and announcements",
@@ -142,6 +147,12 @@ const Home: pageWithLayout = () => {
     }
   }, [workspace?.groupId])
 
+  useEffect(() => {
+    if ((ws as any)?.settings?.coverImage) {
+      setCoverImage((ws as any).settings.coverImage)
+    }
+  }, [(ws as any)?.settings?.coverImage])
+
   const handleRefresh = () => {
     setRefreshing(true)
     setTimeout(() => {
@@ -149,68 +160,82 @@ const Home: pageWithLayout = () => {
     }, 1000)
   }
 
+  const handleCoverUpload = async (file: File) => {
+  const maxSizeInBytes = 8 * 1024 * 1024; // stay under API body limit
+  if (file.size > maxSizeInBytes) {
+    alert("Image must be smaller than 8MB");
+    return;
+  }
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      const dataUrl = event.target?.result as string
+      setCoverImage(dataUrl)
+      setWorkspace({
+        ...workspace,
+        settings: {
+          ...workspace.settings,
+          coverImage: dataUrl,
+        },
+      })
+      try {
+        await axios.patch(`/api/workspace/${ws.groupId}/settings/general/home`, {
+          widgets: workspace.settings.widgets,
+          coverImage: dataUrl,
+        })
+      } catch (e) {
+        // silently fail for now
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
   return (
-    <div className="pagePadding">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <div className="relative">
-            <div className="absolute -left-3 -top-3 w-20 h-20 bg-primary/5 rounded-full blur-2xl"></div>
-            <div className="relative">
-              <div
-                className={clsx(
-                  "transition-all duration-700 transform",
-                  titleVisible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
-                )}
-              >
-                <span className="text-xs font-medium text-primary uppercase tracking-wider mb-1 block">
-                  Welcome back
-                </span>
-                <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-white mb-2 bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
-                  {text}
-                </h1>
-                <div
-                  className={clsx(
-                    "h-1 w-16 bg-gradient-to-r from-primary to-primary/30 rounded-full mb-3 transition-all duration-1000 transform",
-                    titleVisible ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0",
-                  )}
-                ></div>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-md">
-                  Here's what's happening in your workspace today
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleRefresh}
-              className="p-2 rounded-full bg-white dark:bg-zinc-800 shadow-sm hover:shadow transition-all duration-200 text-zinc-500 dark:text-zinc-300 hover:text-primary dark:hover:text-primary"
-              aria-label="Refresh dashboard"
-            >
-              <IconRefresh className={clsx("w-5 h-5", refreshing && "animate-spin")} />
-            </button>
-           
+    <div>
+      {/* Hero Section with Background Image */}
+      <div 
+        className="group w-full min-h-[180px] sm:min-h-[220px] relative flex flex-col justify-between overflow-hidden bg-gradient-to-br from-slate-600 to-slate-800"
+        style={{
+          backgroundImage: coverImage ? `url(${coverImage})` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-black/40"></div>
+        
+        {/* Greeting - positioned at bottom left */}
+        <div className="w-full px-6 py-6 relative z-10 flex items-end">
+          <div className="bg-black/30 backdrop-blur-sm px-4 py-3 rounded-lg w-fit max-w-xl">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">
+              {text}
+            </h1>
           </div>
         </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="pagePadding">
+        <div className="max-w-7xl mx-auto">
         {policiesEnabled && (
           <div className="mb-8 z-0 relative">
             <PolicyNotificationBanner
-              workspaceId={workspace.groupId.toString()}
+              workspaceId={(ws as any).groupId.toString()}
               onPolicyClick={(policyId) => {
                 if (policyId === 'dashboard') {
-                  router.push(`/workspace/${workspace.groupId}/policies`);
+                  router.push(`/workspace/${(ws as any).groupId}/policies`);
                 } else {
-                  router.push(`/workspace/${workspace.groupId}/policies/sign/${policyId}`);
+                  router.push(`/workspace/${(ws as any).groupId}/policies/sign/${policyId}`);
                 }
               }}
             />
           </div>
         )}
-        {Array.isArray(workspace.settings.widgets) && workspace.settings.widgets.includes("birthdays") && (
+        {Array.isArray((ws as any).settings?.widgets) && (ws as any).settings.widgets.includes("birthdays") && (
           <div className="mb-8 z-0 relative">
             <Birthdays />
           </div>
         )}
-        {Array.isArray(workspace.settings.widgets) && workspace.settings.widgets.includes("new_members") && (
+        {Array.isArray((ws as any).settings?.widgets) && (ws as any).settings.widgets.includes("new_members") && (
           <div className="mb-8 z-0 relative">
             <NewToTeam />
           </div>
@@ -293,6 +318,7 @@ const Home: pageWithLayout = () => {
           </div>
         )}
 
+        </div>
       </div>
     </div>
   )

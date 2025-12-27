@@ -1,0 +1,3 @@
+-- Placeholder migration to reconcile local history with DB state.
+-- This migration intentionally does nothing because the corresponding changes
+-- were already applied directly to the database (migration name: 20251127_add_policies).

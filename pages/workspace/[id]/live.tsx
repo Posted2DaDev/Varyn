@@ -63,9 +63,8 @@ const Live: pageWithLayout = () => {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {games.map((g, idx) => (
-            <div key={idx} className="bg-white dark:bg-zinc-800 rounded-lg shadow-sm p-4 border border-zinc-100 dark:border-zinc-700">
-              <div className="flex items-center justify-between mb-3">
+          {games.map((g) => (
+            <div key={g.placeId} className="bg-white dark:bg-zinc-800 rounded-lg shadow-sm p-4 border border-zinc-100 dark:border-zinc-700">              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center"><IconServer className="w-5 h-5 text-primary"/></div>
                   <div>

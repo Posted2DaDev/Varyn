@@ -1,7 +1,5 @@
-import { atom, selector } from "recoil";
-import Router from "next/router";
+import { atom } from "recoil";
 import { role } from "@prisma/client";
-import axios from "axios";
 export type workspaceinfo = {
 	groupId: number;
 				groupThumbnail: string;
@@ -37,7 +35,7 @@ const loginState = __global.__recoilAtoms.loginState || (__global.__recoilAtoms.
 const workspacestate = __global.__recoilAtoms.workspacestate || (__global.__recoilAtoms.workspacestate = atom({
 	key: "workspacestate",
 	default: {
-		groupId: typeof window !== 'undefined' ? parseInt(window.location.pathname.split('/')[2]) || 1 : 1,
+		groupId: 0,
 		groupThumbnail: '',
 		groupName: '',
 		yourPermission: [] as string[],
@@ -52,9 +50,51 @@ const workspacestate = __global.__recoilAtoms.workspacestate || (__global.__reco
 			leaderboardEnabled: false,
 			policiesEnabled: false,
 			liveServersEnabled: false,
-			widgets: [] as string[]
+			promotionsEnabled: false,
+			widgets: [] as string[],
+			coverImage: null as string | null,
 		}
-	}
+	},
+		effects: [({ setSelf }) => {
+			const parseGroupId = () => {
+				const path = globalThis?.location?.pathname ?? '';
+				const maybe = Number.parseInt(path.split('/')[2] ?? '');
+				return Number.isFinite(maybe) ? maybe : 0;
+			};
+
+			if (typeof globalThis !== 'undefined' && globalThis.location) {
+				setSelf(prev => ({ ...prev, groupId: parseGroupId() }));
+			}
+
+			// track client-side navigations (pushState/replaceState) + back/forward
+			const applyFromLocation = () => setSelf(prev => ({ ...prev, groupId: parseGroupId() }));
+			let originalPush: typeof history.pushState | undefined;
+			let originalReplace: typeof history.replaceState | undefined;
+
+			if (typeof window !== 'undefined' && window.history) {
+				originalPush = history.pushState;
+				originalReplace = history.replaceState;
+				history.pushState = function (...args) {
+					const result = originalPush?.apply(this, args as any);
+					applyFromLocation();
+					return result;
+				};
+				history.replaceState = function (...args) {
+					const result = originalReplace?.apply(this, args as any);
+					applyFromLocation();
+					return result;
+				};
+				window.addEventListener('popstate', applyFromLocation);
+			}
+
+			return () => {
+				if (typeof window !== 'undefined' && window.history) {
+					window.removeEventListener('popstate', applyFromLocation);
+					if (originalPush) history.pushState = originalPush;
+					if (originalReplace) history.replaceState = originalReplace;
+				}
+			};
+		}]
 }));
 
 

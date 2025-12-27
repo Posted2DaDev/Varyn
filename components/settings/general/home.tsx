@@ -7,6 +7,22 @@ import { FC } from "@/types/settingsComponent";
 import { IconCheck } from "@tabler/icons-react";
 import clsx from "clsx";
 
+const primaryClass = (theme: string) => {
+  const mapping: Record<string, string> = {
+    "bg-orbit": "bg-orbit text-white hover:bg-orbit/90",
+    "bg-blue-500": "bg-blue-500 text-white hover:bg-blue-600",
+    "bg-red-500": "bg-red-500 text-white hover:bg-red-600",
+    "bg-red-700": "bg-red-700 text-white hover:bg-red-800",
+    "bg-green-500": "bg-green-500 text-white hover:bg-green-600",
+    "bg-green-600": "bg-green-600 text-white hover:bg-green-700",
+    "bg-yellow-500": "bg-yellow-500 text-white hover:bg-yellow-600",
+    "bg-orange-500": "bg-orange-500 text-white hover:bg-orange-600",
+    "bg-purple-500": "bg-purple-500 text-white hover:bg-purple-600",
+    "bg-pink-500": "bg-pink-500 text-white hover:bg-pink-600",
+    "bg-black": "bg-black text-white hover:bg-zinc-900",
+  };
+  return mapping[theme] ?? "bg-zinc-500 text-white hover:bg-zinc-600"
+}
 type props = {
   triggerToast: typeof toast;
 };
@@ -15,11 +31,36 @@ const Color: FC<props> = (props) => {
   const triggerToast = props.triggerToast;
   const [workspace, setWorkspace] = useRecoilState(workspacestate);
 
+  const handleCoverUpload = (file: File) => {
+  // Validate file size (keep under API limit ~10MB)
+  const maxSizeInBytes = 8 * 1024 * 1024;
+  if (file.size > maxSizeInBytes) {
+    triggerToast.error("Image size must be less than 8MB");
+    return;
+  }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setWorkspace({
+        ...workspace,
+        settings: {
+          ...workspace.settings,
+          coverImage: dataUrl,
+        },
+      });
+    };
+    reader.onerror = () => {
+      triggerToast.error("Failed to read image file");
+    };
+    reader.readAsDataURL(file);
+  };
   const updateHome = async () => {
     const res = await axios.patch(
       `/api/workspace/${workspace.groupId}/settings/general/home`,
       {
         widgets: workspace.settings.widgets,
+        coverImage: workspace.settings.coverImage ?? null,
       }
     );
     if (res.status === 200) {
@@ -69,10 +110,53 @@ const Color: FC<props> = (props) => {
         Customize what appears on your workspace home page. Tiles will only be
         shown to users with the corresponding permissions.
       </p>
+
+      {/* Cover image control */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">Home cover image</span>
+          {workspace.settings.coverImage && (
+            <button
+              className="text-xs text-red-500 hover:text-red-600"
+              onClick={() =>
+                setWorkspace({
+                  ...workspace,
+                  settings: {
+                    ...workspace.settings,
+                    coverImage: null,
+                  },
+                })
+              }
+            >
+              Remove
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-4">
+          <label className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-primary text-white cursor-pointer hover:bg-primary/90">
+            <span>Upload</span>
+            <input
+              type="file"
+              accept="image/png, image/jpeg"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleCoverUpload(file);
+              }}
+            />
+          </label>
+          {workspace.settings.coverImage ? (
+            <div className="h-12 w-24 rounded bg-cover bg-center border border-zinc-200 dark:border-zinc-700" style={{ backgroundImage: `url(${workspace.settings.coverImage})` }} />
+          ) : (
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">No image selected</div>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {Object.keys(toggleAble).map((key, i) => (
+        {Object.keys(toggleAble).map((key) => (
           <button
-            key={i}
+            key={key}
             onClick={() => toggle(key)}
             className={clsx(
               "flex items-center justify-between p-3 rounded-lg border transition-colors",
@@ -93,29 +177,7 @@ const Color: FC<props> = (props) => {
           onClick={updateHome}
           className={clsx(
             "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-            workspace.groupTheme === "bg-orbit"
-              ? "bg-orbit text-white hover:bg-orbit/90"
-              : workspace.groupTheme === "bg-blue-500"
-              ? "bg-blue-500 text-white hover:bg-blue-600"
-              : workspace.groupTheme === "bg-red-500"
-              ? "bg-red-500 text-white hover:bg-red-600"
-              : workspace.groupTheme === "bg-red-700"
-              ? "bg-red-700 text-white hover:bg-red-800"
-              : workspace.groupTheme === "bg-green-500"
-              ? "bg-green-500 text-white hover:bg-green-600"
-              : workspace.groupTheme === "bg-green-600"
-              ? "bg-green-600 text-white hover:bg-green-700"
-              : workspace.groupTheme === "bg-yellow-500"
-              ? "bg-yellow-500 text-white hover:bg-yellow-600"
-              : workspace.groupTheme === "bg-orange-500"
-              ? "bg-orange-500 text-white hover:bg-orange-600"
-              : workspace.groupTheme === "bg-purple-500"
-              ? "bg-purple-500 text-white hover:bg-purple-600"
-              : workspace.groupTheme === "bg-pink-500"
-              ? "bg-pink-500 text-white hover:bg-pink-600"
-              : workspace.groupTheme === "bg-black"
-              ? "bg-black text-white hover:bg-zinc-900"
-              : "bg-zinc-500 text-white hover:bg-zinc-600"
+            primaryClass(workspace.groupTheme)
           )}
         >
           Save Changes

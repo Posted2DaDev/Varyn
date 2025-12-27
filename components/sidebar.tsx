@@ -35,6 +35,7 @@ import {
   IconClockFilled,
   IconTrophy,
   IconTrophyFilled,
+  IconArrowsUpDown,
 } from "@tabler/icons-react"
 import axios from "axios"
 import clsx from "clsx"
@@ -104,6 +105,7 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
   const [leaderboardEnabled, setLeaderboardEnabled] = useState(false);
   const [policiesEnabled, setPoliciesEnabled] = useState(false);
   const [liveServersEnabled, setLiveServersEnabled] = useState(false);
+  const [promotionsEnabled, setPromotionsEnabled] = useState(false);
   const router = useRouter()
 
   // Add body class to prevent scrolling when mobile menu is open
@@ -160,6 +162,7 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
     ...(docsEnabled ? [{ name: "Docs", href: "/workspace/[id]/docs", icon: IconFileText, filledIcon: IconFileTextFilled, accessible: true }] : []),
     ...(policiesEnabled ? [{ name: "Policies", href: "/workspace/[id]/policies", icon: IconShield, filledIcon: IconShield, accessible: workspace.yourPermission.includes("manage_policies") || workspace.yourPermission.includes("admin") }] : []),
 	...(liveServersEnabled ? [{ name: "Live Servers", href: "/workspace/[id]/live", icon: IconServer, filledIcon: IconServer, accessible: workspace.yourPermission.includes("view_servers") || workspace.yourPermission.includes("admin") }] : []),
+    ...(promotionsEnabled ? [{ name: "Promotions", href: "/workspace/[id]/promotions", icon: IconArrowsUpDown, filledIcon: IconArrowsUpDown, accessible: workspace.yourPermission.includes("manage_promotions") || workspace.yourPermission.includes("view_promotions") || workspace.yourPermission.includes("admin") }] : []),
     { name: "Settings", href: "/workspace/[id]/settings", icon: IconSettings, filledIcon: IconSettingsFilled, accessible: workspace.yourPermission.includes("admin") },
   ];
 
@@ -327,6 +330,24 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
         setLiveServersEnabled(enabled);
       })
       .catch(() => setLiveServersEnabled(false));
+  }, [workspace.groupId]);
+
+  useEffect(() => {
+    fetch(`/api/workspace/${workspace.groupId}/settings/general/promotions`)
+      .then(res => res.json())
+      .then(data => {
+        let enabled = false;
+        let val = data.value ?? data;
+        if (typeof val === "string") {
+          try { val = JSON.parse(val); } catch { val = {}; }
+        }
+        enabled =
+          typeof val === "object" && val !== null && "enabled" in val
+            ? (val as { enabled?: boolean }).enabled ?? false
+            : false;
+        setPromotionsEnabled(enabled);
+      })
+      .catch(() => setPromotionsEnabled(false));
   }, [workspace.groupId]);
 
 
@@ -586,7 +607,19 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
                   </button>
                 </div>
 
+			
+
                 <div className="space-y-4">
+
+					<div>
+                    <h3 className="text-sm font-medium text-zinc-900 dark:text-white mb-1">
+                      prplManagement additions and features:
+                    </h3>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Copyright © 2025 prplSolutions. All rights reserved.
+                    </p>
+                  </div>
+
                   <div>
                     <h3 className="text-sm font-medium text-zinc-900 dark:text-white mb-1">
                       Orbit features, enhancements, and modifications:
@@ -630,7 +663,20 @@ const Sidebar: NextPage<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
                   </button>
                 </div>
           
+				
+
                 <div className="mb-4">
+
+					<div>
+                    <h3 className="text-sm font-medium text-zinc-900 dark:text-white mb-1">
+                      prplManagement additions and features:
+                    </h3>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Copyright © 2025 prplSolutions. All rights reserved.
+                    </p>
+                  </div>
+                <div className="border-t border-zinc-300 dark:border-zinc-700 my-4" />
+
                   <p className="text-sm font-medium text-zinc-900 dark:text-white mb-1">
                     Orbit
                   </p>

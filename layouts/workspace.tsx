@@ -27,20 +27,52 @@ const workspace: LayoutProps = ({ children }) => {
 
 	const useTheme = (groupTheme: string) => {
 		const themes: Record<string, string> = {
+			// Light variants
+			"bg-pink-200": "#fccfe8",
+			"bg-red-200": "#fecaca",
+			"bg-orange-200": "#fed7aa",
+			"bg-yellow-200": "#fef08a",
+			"bg-lime-200": "#d9f99d",
+			"bg-emerald-200": "#a7f3d0",
+			"bg-cyan-200": "#a4e6f1",
+			"bg-blue-200": "#bfdbfe",
+			"bg-indigo-200": "#c7d2fe",
+			"bg-violet-200": "#ddd6fe",
+			// Medium variants
+			"bg-pink-400": "#f472b6",
+			"bg-red-400": "#f87171",
+			"bg-orange-400": "#fb923c",
+			"bg-yellow-400": "#facc15",
+			"bg-lime-400": "#a3e635",
+			"bg-emerald-400": "#34d399",
+			"bg-cyan-400": "#22d3ee",
+			"bg-blue-400": "#60a5fa",
+			"bg-indigo-400": "#818cf8",
+			"bg-violet-400": "#c4b5fd",
+			// Dark variants
+			"bg-pink-700": "#be185d",
+			"bg-red-700": "#b91c1c",
+			"bg-orange-700": "#c2410c",
+			"bg-yellow-700": "#a16207",
+			"bg-lime-700": "#65a30d",
+			"bg-emerald-700": "#059669",
+			"bg-cyan-700": "#0891b2",
+			"bg-blue-700": "#1d4ed8",
+			"bg-indigo-700": "#4338ca",
+			"bg-violet-700": "#6d28d9",
+			// Legacy colors for backwards compatibility
 			"bg-orbit": "#FF0099",
 			"bg-blue-500": colors.blue[500],
 			"bg-red-500": colors.red[500],
-			"bg-red-700": colors.red[700],
 			"bg-green-500": colors.green[500],
 			"bg-green-600": colors.green[600],
 			"bg-yellow-500": colors.yellow[500],
-			"bg-orange-500": colors.orange[500],
 			"bg-purple-500": colors.purple[500],
 			"bg-pink-500": colors.pink[500],
 			"bg-black": colors.black,
 			"bg-zinc-500": colors.gray[500],
 		};
-		const hex = hexRgb(themes[groupTheme] || "#FF0099");
+		const hex = hexRgb(themes[groupTheme] || "#e879f9");
 		return `${hex.red} ${hex.green} ${hex.blue}`;
 	};
 

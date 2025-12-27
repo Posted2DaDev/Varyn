@@ -16,19 +16,18 @@ const LiveServers: FC<props> = (props) => {
 	const [workspace, setWorkspace] = useRecoilState(workspacestate);
 
 	const updateColor = async () => {
-		const res = await axios.patch(`/api/workspace/${workspace.groupId}/settings/general/live_servers`, { 
-			enabled: !workspace.settings.liveServersEnabled
-		});
-		if (res.status === 200) {
+		try {
+			const res = await axios.patch(`/api/workspace/${workspace.groupId}/settings/general/live_servers`, { 
+				enabled: !workspace.settings.liveServersEnabled
+			});
 			const obj = JSON.parse(JSON.stringify(workspace), (key, value) => (typeof value === 'bigint' ? value.toString() : value));
 			obj.settings.liveServersEnabled = !workspace.settings.liveServersEnabled;
 			setWorkspace(obj);
 			triggerToast.success("Updated live servers!");
-		} else {
+		} catch (error) {
 			triggerToast.error("Failed to update live servers.");
 		}
-	};	
-
+	};
 	return (
 		<div>
 			<div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
