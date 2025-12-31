@@ -3,6 +3,7 @@ import prisma from "@/utils/database";
 import bcryptjs from "bcryptjs";
 import * as noblox from "noblox.js";
 import { NextApiRequest, NextApiResponse } from "next";
+import { validatePassword, DEFAULT_PASSWORD_REQUIREMENTS } from "@/utils/passwordValidator";
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST")
@@ -21,6 +22,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const password = req.body.password;
   if (!password) return res.status(400).json({ success: false, error: "Password is required" });
+
+  // Get username for password validation context
+  const username = await noblox.getUsernameFromId(Number(userid)).catch(() => null);
+  
+  // Validate password strength
+  const validation = validatePassword(
+    password,
+    DEFAULT_PASSWORD_REQUIREMENTS,
+    [username || '', userid.toString()]
+  );
+
+  if (!validation.isValid) {
+    return res.status(400).json({
+      success: false,
+      error: validation.errors[0] || "Password does not meet requirements",
+      validationErrors: validation.errors,
+    });
+  }
 
   const hash = await bcryptjs.hash(password, 10);
   await prisma.userInfo.update({

@@ -6,8 +6,10 @@ import { useForm, FormProvider } from "react-hook-form";
 import Router from "next/router";
 import Slider from "@/components/slider";
 import Input from "@/components/input";
+import PasswordInput from "@/components/PasswordInput";
 import axios from "axios";
 import { toast } from "react-hot-toast";
+import type { PasswordValidationResult } from "@/utils/passwordValidator";
 
 type FormData = {
 	username: string;
@@ -19,12 +21,19 @@ const Login: NextPage = () => {
 	const [selectedColor, setSelectedColor] = useState("bg-orbit");
 	const [login, setLogin] = useRecoilState(loginState);
 	const [isLoading, setIsLoading] = useState(false);
+	const [passwordValidation, setPasswordValidation] = useState<PasswordValidationResult | null>(null);
 	const methods = useForm<{groupid: string}>();
 	const signupform = useForm<FormData>();
 	const { register, handleSubmit, watch, formState: { errors } } = methods;
 	const [selectedSlide, setSelectedSlide] = useState(0);
 
 	async function createAccount() {
+		// Validate password before submission
+		if (!passwordValidation?.isValid) {
+			toast.error('Please ensure your password meets all requirements');
+			return;
+		}
+
 		setIsLoading(true);
 		let request: { data: { success: boolean; user: any } } | undefined;
 		
@@ -185,22 +194,16 @@ const Login: NextPage = () => {
 								</p>
 							)}
 							
-							<Input 
-								type="password" 
+							<PasswordInput
 								{...signupform.register("password", { 
-									required: "Password is required",
-									minLength: {
-										value: 8,
-										message: "Password must be at least 8 characters"
-									}
+									required: "Password is required"
 								})} 
-								label="Password" 
+								label="Password"
+								showStrengthMeter={true}
+								showRequirements={true}
+								userInputs={[signupform.watch('username') || '']}
+								onValidationChange={setPasswordValidation}
 							/>
-							{signupform.formState.errors.password && (
-								<p className="text-red-500 text-sm mt-1">
-									{signupform.formState.errors.password.message}
-								</p>
-							)}
 							
 							<Input 
 								type="password" 
@@ -231,9 +234,9 @@ const Login: NextPage = () => {
 						<button
 							type="button"
 							onClick={signupform.handleSubmit(createAccount)}
-							disabled={isLoading}
+							disabled={isLoading || !passwordValidation?.isValid}
 							className={`ml-4 bg-orbit py-3 text-sm rounded-xl px-6 text-white font-bold hover:bg-orbit/80 transition ${
-								isLoading ? 'opacity-50 cursor-not-allowed' : ''
+								isLoading || !passwordValidation?.isValid ? 'opacity-50 cursor-not-allowed' : ''
 							}`}
 						>
 							{isLoading ? 'Creating...' : 'Continue'}

@@ -4,9 +4,11 @@ import { useForm, FormProvider } from "react-hook-form";
 import axios from "axios";
 import Router from "next/router";
 import Input from "@/components/input";
+import PasswordInput from "@/components/PasswordInput";
 import Button from "@/components/button";
 import { Dialog } from "@headlessui/react";
 import { IconX } from "@tabler/icons-react";
+import type { PasswordValidationResult } from "@/utils/passwordValidator";
 
 type FormData = {
 	username: string;
@@ -22,6 +24,7 @@ const ForgotPassword: NextPage = () => {
 	const [code, setCode] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [showCopyright, setShowCopyright] = useState(false);
+	const [passwordValidation, setPasswordValidation] = useState<PasswordValidationResult | null>(null);
 
 	const usernameForm = useForm<FormData>();
 	const passwordForm = useForm<ResetPasswordData>();
@@ -41,6 +44,11 @@ const ForgotPassword: NextPage = () => {
 	};
 
 	const finishReset = async () => {
+		if (!passwordValidation?.isValid) {
+			setError('Please ensure your password meets all requirements');
+			return;
+		}
+		
 		setError(null);
 		try {
 			await axios.post("/api/auth/reset/finish", {
@@ -137,10 +145,13 @@ const ForgotPassword: NextPage = () => {
 							</p>
 							<FormProvider {...passwordForm}>
 								<form className="mb-8 mt-2 space-y-5" onSubmit={passwordForm.handleSubmit(finishReset)}>
-									<Input
-										type="password"
+									<PasswordInput
 										{...passwordForm.register("password", { required: "You must enter a password" })}
 										label="New Password"
+										showStrengthMeter={true}
+										showRequirements={true}
+										userInputs={[usernameForm.watch('username') || '']}
+										onValidationChange={setPasswordValidation}
 									/>
 									<Input
 										type="password"
@@ -162,6 +173,7 @@ const ForgotPassword: NextPage = () => {
 										<Button
 											type="submit"
 											classoverride="px-6 py-2 text-sm rounded-lg"
+											disabled={!passwordValidation?.isValid}
 										>
 											Reset Password
 										</Button>

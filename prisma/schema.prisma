@@ -7,35 +7,39 @@ datasource db {
 }
 
 model workspace {
-  groupId           Int                        @id @unique
-  groupLogo         String?
-  groupName         String?
-  lastSynced        DateTime?
-  isDeleted         Boolean                    @default(false)
-  isSuspended       Boolean                    @default(false)
-  deletedAt         DateTime?
-  suspendedAt       DateTime?
-  adjustments       ActivityAdjustment[]
-  activityHistory   ActivityHistory[]
-  activityResets    ActivityReset[]
-  activitySessions  ActivitySession[]
-  allies            Ally[]
-  policyLinks       PolicyShareableLink[]
-  promotions        Promotion[]
-  quotas            Quota[]
-  savedViews        SavedView[]
-  sessionTypes      SessionType[]
-  apiKey            apiKey[]
-  config            config[]
-  documents         document[]
-  inactivityNotices inactivityNotice[]
-  policy            policy[]
-  ranks             rank[]
-  roles             role[]
-  userBook          userBook[]
-  wallposts         wallPost[]
-  externalServices  workspaceExternalServices?
-  members           workspaceMember[]
+  groupId                Int                        @id @unique
+  groupLogo              String?
+  groupName              String?
+  lastSynced             DateTime?
+  isDeleted              Boolean                    @default(false)
+  isSuspended            Boolean                    @default(false)
+  deletedAt              DateTime?
+  suspendedAt            DateTime?
+  adjustments            ActivityAdjustment[]
+  activityHistory        ActivityHistory[]
+  activityResets         ActivityReset[]
+  activitySessions       ActivitySession[]
+  allies                 Ally[]
+  Notification           Notification[]
+  NotificationPreference NotificationPreference[]
+  policyLinks            PolicyShareableLink[]
+  promotions             Promotion[]
+  PushSubscription       PushSubscription[]
+  quotas                 Quota[]
+  savedViews             SavedView[]
+  sessionTypes           SessionType[]
+  apiKey                 apiKey[]
+  config                 config[]
+  department             department[]
+  documents              document[]
+  inactivityNotices      inactivityNotice[]
+  policy                 policy[]
+  ranks                  rank[]
+  roles                  role[]
+  userBook               userBook[]
+  wallposts              wallPost[]
+  externalServices       workspaceExternalServices?
+  members                workspaceMember[]
 }
 
 model config {
@@ -57,25 +61,28 @@ model instanceConfig {
 }
 
 model user {
-  userid                                              BigInt                  @id @unique
+  userid                                              BigInt                   @id @unique
   isOwner                                             Boolean?
   picture                                             String?
   username                                            String?
   registered                                          Boolean?
   birthdayDay                                         Int?
   birthdayMonth                                       Int?
-  adjustmentsMade                                     ActivityAdjustment[]    @relation("AdjustmentActor")
-  adjustmentsReceived                                 ActivityAdjustment[]    @relation("AdjustmentUser")
+  adjustmentsMade                                     ActivityAdjustment[]     @relation("AdjustmentActor")
+  adjustmentsReceived                                 ActivityAdjustment[]     @relation("AdjustmentUser")
   activityHistory                                     ActivityHistory[]
   activityResets                                      ActivityReset[]
   activitySessions                                    ActivitySession[]
+  Notification                                        Notification[]
+  NotificationPreference                              NotificationPreference[]
   policyAcknowledgments                               PolicyAcknowledgment[]
   createdPolicyLinks                                  PolicyShareableLink[]
-  promotionsAuthored                                  Promotion[]             @relation("PromotionRecommender")
+  promotionsAuthored                                  Promotion[]              @relation("PromotionRecommender")
   PromotionVote                                       PromotionVote[]
+  PushSubscription                                    PushSubscription[]
   sessions                                            Session[]
-  sessionLogsAsActor                                  SessionLog[]            @relation("SessionLogActor")
-  sessionLogsAsTarget                                 SessionLog[]            @relation("SessionLogTarget")
+  sessionLogsAsActor                                  SessionLog[]             @relation("SessionLogActor")
+  sessionLogsAsTarget                                 SessionLog[]             @relation("SessionLogTarget")
   sessionNotes                                        SessionNote[]
   allyVisits                                          allyVisit[]
   apiKey                                              apiKey[]
@@ -85,14 +92,14 @@ model user {
   policyAcknowledgement                               policyAcknowledgement[]
   ranks                                               rank[]
   sessionsRoles                                       sessionUser[]
-  writtenBooks                                        userBook[]              @relation("bookAdmin")
-  book                                                userBook[]              @relation("bookUser")
+  writtenBooks                                        userBook[]               @relation("bookAdmin")
+  book                                                userBook[]               @relation("bookUser")
   info                                                userInfo?
   wallPosts                                           wallPost[]
-  workspaceMember_workspaceMember_lineManagerIdTouser workspaceMember[]       @relation("workspaceMember_lineManagerIdTouser")
+  workspaceMember_workspaceMember_lineManagerIdTouser workspaceMember[]        @relation("workspaceMember_lineManagerIdTouser")
   workspaceMemberships                                workspaceMember[]
-  Ally                                                Ally[]                  @relation("AllyTouser")
-  roles                                               role[]                  @relation("roleTouser")
+  Ally                                                Ally[]                   @relation("AllyTouser")
+  roles                                               role[]                   @relation("roleTouser")
 }
 
 model userInfo {
@@ -113,20 +120,22 @@ model QuotaRole {
 }
 
 model role {
-  id               String             @id @unique @default(uuid()) @db.Uuid
-  permissions      String[]
-  isOwnerRole      Boolean?           @default(false)
-  workspaceGroupId Int
-  name             String
-  groupRoles       Int[]
-  color            String?
-  quotaRoles       QuotaRole[]
-  policyAssignment policyAssignment[]
-  workspace        workspace          @relation(fields: [workspaceGroupId], references: [groupId])
-  Quota            Quota[]
-  SessionType      SessionType[]      @relation("SessionTypeTorole")
-  documents        document[]         @relation("documentTorole")
-  members          user[]             @relation("roleTouser")
+  id                                          String             @id @unique @default(uuid()) @db.Uuid
+  permissions                                 String[]
+  isOwnerRole                                 Boolean?           @default(false)
+  workspaceGroupId                            Int
+  name                                        String
+  groupRoles                                  Int[]
+  color                                       String?
+  Promotion_Promotion_currentRoleIdTorole     Promotion[]        @relation("Promotion_currentRoleIdTorole")
+  Promotion_Promotion_recommendedRoleIdTorole Promotion[]        @relation("Promotion_recommendedRoleIdTorole")
+  quotaRoles                                  QuotaRole[]
+  policyAssignment                            policyAssignment[]
+  workspace                                   workspace          @relation(fields: [workspaceGroupId], references: [groupId])
+  Quota                                       Quota[]            @relation("QuotaTorole")
+  SessionType                                 SessionType[]      @relation("SessionTypeTorole")
+  documents                                   document[]         @relation("documentTorole")
+  members                                     user[]             @relation("roleTouser")
 }
 
 model wallPost {
@@ -154,7 +163,7 @@ model AuditLog {
 }
 
 model SessionType {
-  id               String     @id @unique @default(uuid()) @db.Uuid
+  id               String       @id @unique @default(uuid()) @db.Uuid
   name             String
   gameId           BigInt?
   allowUnscheduled Boolean
@@ -164,9 +173,10 @@ model SessionType {
   description      String?
   webhookPing      String?
   sessions         Session[]
-  workspace        workspace  @relation(fields: [workspaceGroupId], references: [groupId])
+  workspace        workspace    @relation(fields: [workspaceGroupId], references: [groupId])
   schedule         schedule[]
-  hostingRoles     role[]     @relation("SessionTypeTorole")
+  department       department[]
+  hostingRoles     role[]       @relation("SessionTypeTorole")
 }
 
 model schedule {
@@ -300,6 +310,7 @@ model document {
   shareableLinks         PolicyShareableLink[]
   owner                  user                   @relation(fields: [ownerId], references: [userid])
   workspace              workspace              @relation(fields: [workspaceGroupId], references: [groupId])
+  department             department[]           @relation("documentTodepartment")
   roles                  role[]                 @relation("documentTorole")
 }
 
@@ -335,16 +346,17 @@ model rank {
 }
 
 model Quota {
-  id               String      @id @unique @default(uuid()) @db.Uuid
+  id               String            @id @unique @default(uuid()) @db.Uuid
   type             String
   value            Int
   workspaceGroupId Int
-  name             String      @default("")
+  name             String            @default("")
   description      String?
   sessionType      String?
-  workspace        workspace   @relation(fields: [workspaceGroupId], references: [groupId])
+  workspace        workspace         @relation(fields: [workspaceGroupId], references: [groupId])
+  QuotaDepartment  QuotaDepartment[]
   quotaRoles       QuotaRole[]
-  role             role[]
+  role             role[]            @relation("QuotaTorole")
 }
 
 model Ally {
@@ -353,9 +365,9 @@ model Ally {
   icon             String
   groupId          String
   id               String      @id @unique @default(uuid()) @db.Uuid
-  notes            String[]
   discordServer    String?
   theirReps        String[]
+  notes            String[]
   workspace        workspace   @relation(fields: [workspaceGroupId], references: [groupId])
   allyVisits       allyVisit[]
   reps             user[]      @relation("AllyTouser")
@@ -375,17 +387,17 @@ model allyVisit {
 model workspaceMember {
   workspaceGroupId                         Int
   userId                                   BigInt
-  joinDate                                 DateTime? @default(now())
+  joinDate                                 DateTime?          @default(now())
   birthdayDay                              Int?
   birthdayMonth                            Int?
-  department                               String?
   discordId                                String?
   lineManagerId                            BigInt?
   timezone                                 String?
-  isAdmin                                  Boolean?  @default(false)
-  user_workspaceMember_lineManagerIdTouser user?     @relation("workspaceMember_lineManagerIdTouser", fields: [lineManagerId], references: [userid], onDelete: NoAction, onUpdate: NoAction)
-  user                                     user      @relation(fields: [userId], references: [userid])
-  workspace                                workspace @relation(fields: [workspaceGroupId], references: [groupId])
+  isAdmin                                  Boolean?           @default(false)
+  DepartmentMember                         DepartmentMember[]
+  user_workspaceMember_lineManagerIdTouser user?              @relation("workspaceMember_lineManagerIdTouser", fields: [lineManagerId], references: [userid], onDelete: NoAction, onUpdate: NoAction)
+  user                                     user               @relation(fields: [userId], references: [userid])
+  workspace                                workspace          @relation(fields: [workspaceGroupId], references: [groupId])
 
   @@id([workspaceGroupId, userId])
   @@index([userId])
@@ -447,14 +459,15 @@ model ActivityReset {
 }
 
 model workspaceExternalServices {
-  id                 Int       @id @default(autoincrement())
-  workspaceGroupId   Int       @unique
-  rankingProvider    String?
-  rankingToken       String?
-  rankingWorkspaceId String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  workspace          workspace @relation(fields: [workspaceGroupId], references: [groupId])
+  id                     Int       @id @default(autoincrement())
+  workspaceGroupId       Int       @unique
+  rankingProvider        String?
+  rankingToken           String?
+  rankingWorkspaceId     String?
+  discordNotificationUrl String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  workspace              workspace @relation(fields: [workspaceGroupId], references: [groupId])
 
   @@index([workspaceGroupId])
 }
@@ -511,23 +524,27 @@ model PolicyShareableLink {
 }
 
 model Promotion {
-  id               String          @id @default(uuid()) @db.Uuid
-  workspaceGroupId Int
-  recommenderId    BigInt
-  targetUserId     BigInt
-  reason           String
-  upvotes          Int             @default(0)
-  downvotes        Int             @default(0)
-  createdAt        DateTime        @default(now()) @db.Timestamp(6)
-  updatedAt        DateTime        @default(now()) @updatedAt @db.Timestamp(6)
-  currentRole      String
-  recommendedRole  String
-  recommender      user            @relation("PromotionRecommender", fields: [recommenderId], references: [userid], map: "Promotion_recommender_fkey")
-  workspace        workspace       @relation(fields: [workspaceGroupId], references: [groupId], map: "Promotion_workspace_fkey")
-  PromotionVote    PromotionVote[]
+  id                                     String          @id @default(uuid()) @db.Uuid
+  workspaceGroupId                       Int
+  recommenderId                          BigInt
+  targetUserId                           BigInt
+  reason                                 String
+  upvotes                                Int             @default(0)
+  downvotes                              Int             @default(0)
+  createdAt                              DateTime        @default(now()) @db.Timestamp(6)
+  updatedAt                              DateTime        @default(now()) @updatedAt @db.Timestamp(6)
+  currentRoleId                          String          @db.Uuid
+  recommendedRoleId                      String          @db.Uuid
+  role_Promotion_currentRoleIdTorole     role            @relation("Promotion_currentRoleIdTorole", fields: [currentRoleId], references: [id])
+  role_Promotion_recommendedRoleIdTorole role            @relation("Promotion_recommendedRoleIdTorole", fields: [recommendedRoleId], references: [id])
+  recommender                            user            @relation("PromotionRecommender", fields: [recommenderId], references: [userid], map: "Promotion_recommender_fkey")
+  workspace                              workspace       @relation(fields: [workspaceGroupId], references: [groupId], map: "Promotion_workspace_fkey")
+  PromotionVote                          PromotionVote[]
 
   @@index([createdAt], map: "Promotion_created_idx")
   @@index([workspaceGroupId], map: "Promotion_workspace_idx")
+  @@index([currentRoleId])
+  @@index([recommendedRoleId])
 }
 
 model PromotionVote {
@@ -605,4 +622,94 @@ model policyLink {
   policy      policy    @relation(fields: [policyId], references: [id], onDelete: Cascade, map: "policyLink_policy_fkey")
 
   @@index([policyId], map: "policyLink_policy_idx")
+}
+
+model DepartmentMember {
+  departmentId     String          @db.Uuid
+  workspaceGroupId Int
+  userId           BigInt
+  department       department      @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  workspaceMember  workspaceMember @relation(fields: [workspaceGroupId, userId], references: [workspaceGroupId, userId], onDelete: Cascade)
+
+  @@id([departmentId, workspaceGroupId, userId])
+}
+
+model Notification {
+  id                String    @id @db.Uuid
+  userId            BigInt
+  workspaceGroupId  Int
+  type              String    @db.VarChar(50)
+  title             String
+  message           String
+  relatedEntityId   String?   @db.Uuid
+  relatedEntityType String?   @db.VarChar(50)
+  metadata          Json?
+  isRead            Boolean   @default(false)
+  readAt            DateTime?
+  createdAt         DateTime  @default(now())
+  user              user      @relation(fields: [userId], references: [userid])
+  workspace         workspace @relation(fields: [workspaceGroupId], references: [groupId])
+
+  @@index([createdAt])
+  @@index([isRead])
+  @@index([userId])
+  @@index([workspaceGroupId])
+}
+
+model NotificationPreference {
+  id               String    @id @db.Uuid
+  userId           BigInt
+  workspaceGroupId Int
+  notificationType String    @db.VarChar(50)
+  inApp            Boolean   @default(true)
+  discord          Boolean   @default(true)
+  webPush          Boolean   @default(true)
+  email            Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime
+  user             user      @relation(fields: [userId], references: [userid])
+  workspace        workspace @relation(fields: [workspaceGroupId], references: [groupId])
+
+  @@unique([userId, workspaceGroupId, notificationType])
+  @@index([userId])
+  @@index([workspaceGroupId])
+}
+
+model PushSubscription {
+  id               String    @id @db.Uuid
+  userId           BigInt
+  workspaceGroupId Int
+  endpoint         String
+  auth             String
+  p256dh           String
+  createdAt        DateTime  @default(now())
+  user             user      @relation(fields: [userId], references: [userid])
+  workspace        workspace @relation(fields: [workspaceGroupId], references: [groupId])
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+  @@index([workspaceGroupId])
+}
+
+model QuotaDepartment {
+  quotaId      String     @db.Uuid
+  departmentId String     @db.Uuid
+  department   department @relation(fields: [departmentId], references: [id])
+  Quota        Quota      @relation(fields: [quotaId], references: [id])
+
+  @@unique([quotaId, departmentId])
+}
+
+model department {
+  id               String             @id @unique @db.Uuid
+  name             String
+  color            String?
+  workspaceGroupId Int
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  DepartmentMember DepartmentMember[]
+  QuotaDepartment  QuotaDepartment[]
+  workspace        workspace          @relation(fields: [workspaceGroupId], references: [groupId])
+  SessionType      SessionType[]
+  document         document[]         @relation("documentTodepartment")
 }

@@ -141,10 +141,12 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
 
     try {
       const selectedTimes = times.length > 0 ? times : [form.getValues().time || "00:00"];
-      const selectedDays: number[] = days.map((day) => {
-        const dayMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        return dayMap.indexOf(day);
-      });
+      const selectedDays: number[] = frequency === "daily"
+        ? [new Date().getDay()]
+        : days.map((day) => {
+            const dayMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            return dayMap.indexOf(day);
+          });
 
       // use the first selected time as the representative schedule time when creating the session type
       const [firstHours, firstMinutes] = selectedTimes[0].split(":").map(Number);
@@ -454,7 +456,7 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
     if (!allowUnscheduled && !enabled) return false;
     if (allowUnscheduled && enabled) return false;
     if (enabled && times.length === 0 && !form.getValues().time) return false;
-    if (enabled && days.length === 0) return false;
+    if (enabled && frequency !== "daily" && days.length === 0) return false;
     if (allowUnscheduled && (!unscheduledDate || !unscheduledTime))
       return false;
 
@@ -862,8 +864,9 @@ const Home: pageWithLayout<InferGetServerSidePropsType<GetServerSideProps>> = ({
                         Choose how often this session repeats
                       </p>
 
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-4 gap-3">
                         {[
+                          { value: "daily", label: "Daily" },
                           { value: "weekly", label: "Weekly" },
                           { value: "biweekly", label: "Bi-weekly" },
                           { value: "monthly", label: "Monthly" },

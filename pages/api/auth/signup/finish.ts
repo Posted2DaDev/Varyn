@@ -4,6 +4,7 @@ import prisma from "@/utils/database";
 import bcryptjs from "bcryptjs";
 import * as noblox from "noblox.js";
 import { getRobloxThumbnail } from "@/utils/roblox";
+import { validatePassword, DEFAULT_PASSWORD_REQUIREMENTS } from "@/utils/passwordValidator";
 
 type Data = {
   success: boolean;
@@ -83,13 +84,18 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
         .json({ success: false, error: "Password is required", code: 400 });
     }
 
-    if (
-      password.length < 7 ||
-      !/[0-9!@#$%^&*]/.test(password)
-    ) {
+    // Validate password strength
+    const robloxUsername = await noblox.getUsernameFromId(userid);
+    const validation = validatePassword(
+      password, 
+      DEFAULT_PASSWORD_REQUIREMENTS,
+      [robloxUsername || '', userid.toString()]
+    );
+
+    if (!validation.isValid) {
       return res.status(400).json({
         success: false,
-        error: "Password must be at least 7 characters and contain a number or special character.",
+        error: validation.errors[0] || "Password does not meet requirements",
         code: 400,
       });
     }

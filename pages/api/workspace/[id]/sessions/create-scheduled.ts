@@ -86,10 +86,16 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
     endDate.setFullYear(currentDate.getFullYear() + 1);
 
     let intervalDays = 7;
-    if (frequency === "biweekly") {
+    let maxSessions = 52;
+    if (frequency === "daily") {
+      intervalDays = 1;
+      maxSessions = 365;
+    } else if (frequency === "biweekly") {
       intervalDays = 14;
+      maxSessions = 26;
     } else if (frequency === "monthly") {
       intervalDays = 30;
+      maxSessions = 12;
     }
 
     const selectedDays = Array.isArray(days) ? days : [days];
@@ -101,7 +107,7 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
         const scheduledTime = new Date(today);
         scheduledTime.setHours(hours, minutes, 0, 0);
         if (today.getTime() >= scheduledTime.getTime()) {
-          daysUntilTarget = 7;
+          daysUntilTarget = frequency === "daily" ? 1 : 7;
         }
       }
       
@@ -110,14 +116,6 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
       firstOccurrence.setUTCHours(0, 0, 0, 0);
 
       let sessionCount = 0;
-      let maxSessions;
-      if (frequency === "monthly") {
-        maxSessions = 12;
-      } else if (frequency === "biweekly") {
-        maxSessions = 26;
-      } else {
-        maxSessions = 52;
-      }
 
       while (sessionCount < maxSessions) {
         const sessionDate = new Date(firstOccurrence);

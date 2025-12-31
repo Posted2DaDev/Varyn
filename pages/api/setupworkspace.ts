@@ -17,6 +17,7 @@ import {
   getRobloxDisplayName,
   getRobloxUserId,
 } from "@/utils/roblox";
+import { validatePassword, DEFAULT_PASSWORD_REQUIREMENTS } from "@/utils/passwordValidator";
 
 type Data = {
   success: boolean;
@@ -118,6 +119,22 @@ export async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
       return res
         .status(403)
         .json({ success: false, error: "Workspace already exists" });
+    }
+
+    // Validate password strength
+    const validation = validatePassword(
+      password,
+      DEFAULT_PASSWORD_REQUIREMENTS,
+      [username, userid.toString()]
+    );
+
+    if (!validation.isValid) {
+      console.error("Password validation failed:", validation.errors);
+      return res.status(400).json({
+        success: false,
+        error: validation.errors[0] || "Password does not meet requirements",
+        validationErrors: validation.errors,
+      });
     }
 
     // Hash password before any database operations

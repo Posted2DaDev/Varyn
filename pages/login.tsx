@@ -7,12 +7,14 @@ import Button from "@/components/button";
 import Router from "next/router";
 import axios from "axios";
 import Input from "@/components/input";
+import PasswordInput from "@/components/PasswordInput";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Dialog } from "@headlessui/react";
 import { IconX } from "@tabler/icons-react";
 import { OAuthAvailable } from "@/hooks/useOAuth";
+import type { PasswordValidationResult } from "@/utils/passwordValidator";
 
 type LoginForm = { username: string; password: string };
 type SignupForm = { username: string; password: string; verifypassword: string };
@@ -20,6 +22,7 @@ type SignupForm = { username: string; password: string; verifypassword: string }
 const Login: NextPage = () => {
   const [login, setLogin] = useRecoilState(loginState);
   const { isAvailable: isOAuth } = OAuthAvailable();
+  const [passwordValidation, setPasswordValidation] = useState<PasswordValidationResult | null>(null);
 
   const loginMethods = useForm<LoginForm>();
   const signupMethods = useForm<SignupForm>();
@@ -133,6 +136,10 @@ const Login: NextPage = () => {
   const onSubmitSignup: SubmitHandler<SignupForm> = async ({ username, password, verifypassword }) => {
     if (password !== verifypassword) {
       setErrSignup("verifypassword", { type: "validate", message: "Passwords must match" });
+      return;
+    }
+    if (!passwordValidation?.isValid) {
+      setErrSignup("password", { type: "validate", message: "Password does not meet requirements" });
       return;
     }
     setLoading(true);
@@ -345,21 +352,16 @@ const Login: NextPage = () => {
 
                   <FormProvider {...signupMethods}>
                     <form onSubmit={submitSignup(onSubmitSignup)} className="space-y-5 mb-6" noValidate>
-                      <Input
+                      <PasswordInput
                         label="Password"
                         placeholder="Password"
-                        type="password"
                         id="signup-password"
+                        showStrengthMeter={true}
+                        showRequirements={true}
+                        userInputs={[getSignupValues('username') || '']}
+                        onValidationChange={setPasswordValidation}
                         {...regSignup("password", {
-                          required: "Password is required",
-                          minLength: {
-                            value: 7,
-                            message: "Password must be at least 7 characters",
-                          },
-                          pattern: {
-                            value: /^(?=.*[0-9!@#$%^&*])/,
-                            message: "Password must contain at least one number or special character",
-                          },
+                          required: "Password is required"
                         })}
                       />
                       <Input
@@ -385,7 +387,7 @@ const Login: NextPage = () => {
                           type="submit"
                           classoverride="flex-1 px-3 py-1 text-sm rounded-md"
                           loading={loading}
-                          disabled={loading}
+                          disabled={loading || !passwordValidation?.isValid}
                         >
                           Continue
                         </Button>
