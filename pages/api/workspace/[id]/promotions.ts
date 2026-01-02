@@ -84,11 +84,14 @@ async function handleGetPromotions(
   // Sort by score or createdAt
   const orderBy =
     sort === "new"
-      ? "ORDER BY \"createdAt\" DESC"
-      : "ORDER BY (COALESCE(\"upvotes\",0) - COALESCE(\"downvotes\",0)) DESC, \"createdAt\" DESC";
-  // Use a single raw SELECT on the canonical Promotion table
+      ? 'ORDER BY p."createdAt" DESC'
+      : 'ORDER BY (COALESCE(p."upvotes",0) - COALESCE(p."downvotes",0)) DESC, p."createdAt" DESC';
   const rows: any[] = await prisma.$queryRawUnsafe(
-    `SELECT * FROM "Promotion" WHERE "workspaceGroupId" = $1 ${orderBy}`,
+    `SELECT p.*, cr.name AS "currentRoleName", rr.name AS "recommendedRoleName"
+     FROM "Promotion" p
+     LEFT JOIN "role" cr ON cr.id = p."currentRoleId"
+     LEFT JOIN "role" rr ON rr.id = p."recommendedRoleId"
+     WHERE p."workspaceGroupId" = $1 ${orderBy}`,
     workspaceId
   );
 
@@ -107,8 +110,10 @@ async function handleGetPromotions(
         targetUserId: String(r.targetUserId),
         targetUsername,
         targetAvatar,
-        currentRole: r.currentRole,
-        recommendedRole: r.recommendedRole,
+        currentRole: r.currentRoleName || r.currentRoleId,
+        currentRoleId: r.currentRoleId,
+        recommendedRole: r.recommendedRoleName || r.recommendedRoleId,
+        recommendedRoleId: r.recommendedRoleId,
         reason: r.reason,
         upvotes: Number(r.upvotes || 0),
         downvotes: Number(r.downvotes || 0),
@@ -145,6 +150,17 @@ async function handleCreatePromotion(
     return res.status(400).json({ success: false, error: "Invalid target user" });
   }
 
+  let currentRoleRecord, recommendedRoleRecord;
+  try {
+    [currentRoleRecord, recommendedRoleRecord] = await Promise.all([
+      resolveRole(workspaceId, String(currentRole)),
+      resolveRole(workspaceId, String(recommendedRole)),
+    ]);
+  } catch (error: any) {
+    const message = typeof error?.message === "string" ? error.message : "Invalid role";
+    return res.status(400).json({ success: false, error: message });
+  }
+
   let targetUsername, targetAvatar, recommenderName, recommenderAvatar;
   try {
     [targetUsername, targetAvatar, recommenderName, recommenderAvatar] = await Promise.all([
@@ -163,15 +179,15 @@ async function handleCreatePromotion(
   const newId = uuidv4();
   const createdRows: any[] = await prisma.$queryRawUnsafe(
     `INSERT INTO "Promotion" (
-      id, "workspaceGroupId", "recommenderId", "targetUserId", "currentRole", "recommendedRole", reason, upvotes, downvotes
-    ) VALUES ($1::uuid,$2::int,$3::bigint,$4::bigint,$5::text,$6::text,$7::text,0,0)
+      id, "workspaceGroupId", "recommenderId", "targetUserId", "currentRoleId", "recommendedRoleId", reason, upvotes, downvotes
+    ) VALUES ($1::uuid,$2::int,$3::bigint,$4::bigint,$5::uuid,$6::uuid,$7::text,0,0)
     RETURNING id, "createdAt"`,
     newId,
     workspaceId,
     BigInt(userId as any),
     BigInt(targetUserId),
-    String(currentRole),
-    String(recommendedRole),
+    currentRoleRecord.id,
+    recommendedRoleRecord.id,
     String(reason)
   );
   const created = createdRows?.[0] ?? { id: newId, createdAt: new Date() };
@@ -187,8 +203,10 @@ async function handleCreatePromotion(
       targetUserId: String(targetUserId),
       targetUsername,
       targetAvatar,
-      currentRole,
-      recommendedRole,
+      currentRole: currentRoleRecord.name,
+      currentRoleId: currentRoleRecord.id,
+      recommendedRole: recommendedRoleRecord.name,
+      recommendedRoleId: recommendedRoleRecord.id,
       reason,
       upvotes: 0,
       downvotes: 0,
@@ -197,5 +215,29 @@ async function handleCreatePromotion(
       status: "pending" as const,
     },
   });
+}
+
+async function resolveRole(workspaceId: number, value: string) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    throw new Error("Role is required");
+  }
+
+  const role = await prisma.role.findFirst({
+    where: {
+      workspaceGroupId: workspaceId,
+      OR: [
+        { id: trimmed },
+        { name: { equals: trimmed, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, name: true },
+  });
+
+  if (!role) {
+    throw new Error("Role not found in this workspace");
+  }
+
+  return role;
 }
 

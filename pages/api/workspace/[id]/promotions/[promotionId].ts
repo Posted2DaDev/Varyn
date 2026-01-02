@@ -80,7 +80,12 @@ async function handleGetPromotion(
   promotionId: string
 ) {
   const rows: any[] = await prisma.$queryRawUnsafe(
-    `SELECT * FROM "Promotion" WHERE id = $1::uuid AND "workspaceGroupId" = $2::int LIMIT 1`,
+    `SELECT p.*, cr.name AS "currentRoleName", rr.name AS "recommendedRoleName"
+     FROM "Promotion" p
+     LEFT JOIN "role" cr ON cr.id = p."currentRoleId"
+     LEFT JOIN "role" rr ON rr.id = p."recommendedRoleId"
+     WHERE p.id = $1::uuid AND p."workspaceGroupId" = $2::int
+     LIMIT 1`,
     promotionId,
     workspaceId
   );
@@ -123,8 +128,10 @@ async function handleGetPromotion(
     targetUserId: String(row.targetUserId),
     targetUsername,
     targetAvatar,
-    currentRole: row.currentRole,
-    recommendedRole: row.recommendedRole,
+    currentRole: row.currentRoleName || row.currentRoleId,
+    currentRoleId: row.currentRoleId,
+    recommendedRole: row.recommendedRoleName || row.recommendedRoleId,
+    recommendedRoleId: row.recommendedRoleId,
     reason: row.reason,
     upvotes: Number(row.upvotes || 0),
     downvotes: Number(row.downvotes || 0),

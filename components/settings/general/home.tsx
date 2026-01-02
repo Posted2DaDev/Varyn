@@ -21,8 +21,8 @@ const primaryClass = (theme: string) => {
     "bg-pink-500": "bg-pink-500 text-white hover:bg-pink-600",
     "bg-black": "bg-black text-white hover:bg-zinc-900",
   };
-  return mapping[theme] ?? "bg-zinc-500 text-white hover:bg-zinc-600"
-}
+  return mapping[theme] ?? "bg-zinc-500 text-white hover:bg-zinc-600";
+};
 type props = {
   triggerToast: typeof toast;
 };
@@ -32,12 +32,12 @@ const Color: FC<props> = (props) => {
   const [workspace, setWorkspace] = useRecoilState(workspacestate);
 
   const handleCoverUpload = (file: File) => {
-  // Validate file size (keep under API limit ~10MB)
-  const maxSizeInBytes = 8 * 1024 * 1024;
-  if (file.size > maxSizeInBytes) {
-    triggerToast.error("Image size must be less than 8MB");
-    return;
-  }
+    // Validate file size (keep under API limit ~10MB)
+    const maxSizeInBytes = 8 * 1024 * 1024;
+    if (file.size > maxSizeInBytes) {
+      triggerToast.error("Image size must be less than 8MB");
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -55,6 +55,7 @@ const Color: FC<props> = (props) => {
     };
     reader.readAsDataURL(file);
   };
+
   const updateHome = async () => {
     const res = await axios.patch(
       `/api/workspace/${workspace.groupId}/settings/general/home`,

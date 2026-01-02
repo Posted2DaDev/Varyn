@@ -20,11 +20,22 @@ export async function handler(
 	if (!req.session.userid) return res.status(401).json({ success: false, error: 'Not logged in' });
 
 	try {
+		const workspaceGroupId = parseInt(req.query.id as string);
+		if (!workspaceGroupId) {
+			return res.status(400).json({ success: false, error: 'Invalid workspace ID' });
+		}
+
+		// Find users who are members of this workspace and match the username search
 		const users = await prisma.user.findMany({
 			where: {
 				username: {
 					contains: String(req.query.username),
 					mode: 'insensitive'
+				},
+				roles: {
+					some: {
+						workspaceGroupId
+					}
 				}
 			}
 		});

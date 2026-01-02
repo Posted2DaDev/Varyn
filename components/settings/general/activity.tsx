@@ -8,13 +8,9 @@ import {
   IconCheck,
   IconChevronDown,
   IconAlertTriangle,
-  IconToggleLeft,
-  IconToggleRight,
-  IconCalendarTime,
 } from "@tabler/icons-react";
 import { useRouter } from "next/router";
 import moment from "moment";
-import clsx from "clsx";
 
 type props = {
   triggerToast: typeof toast;
@@ -30,28 +26,7 @@ const Activity = (props: props) => {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [leaderboardEnabled, setLeaderboardEnabled] = useState(false);
-  const [weekStartsOn, setWeekStartsOn] = useState<"sunday" | "monday">("sunday");
-  const [trackedRoles, setTrackedRoles] = useState<Record<string, boolean>>({});
   const router = useRouter();
-
-  // Load activity tracking settings
-  useEffect(() => {
-    const loadTrackingSettings = async () => {
-      try {
-        const response = await axios.get(
-          `/api/workspace/${router.query.id}/settings/activity/tracking`
-        );
-        setWeekStartsOn(response.data.weekStartsOn || "sunday");
-        setTrackedRoles(response.data.trackedRoles || {});
-      } catch (error) {
-        console.error("Failed to load tracking settings:", error);
-      }
-    };
-
-    if (router.query.id) {
-      loadTrackingSettings();
-    }
-  }, [router.query.id]);
 
   useEffect(() => {
     (async () => {
@@ -148,52 +123,6 @@ const Activity = (props: props) => {
     }
   };
 
-  const updateWeekStartsOn = async (day: "sunday" | "monday") => {
-    setWeekStartsOn(day);
-    try {
-      await axios.patch(
-        `/api/workspace/${router.query.id}/settings/activity/tracking`,
-        {
-          weekStartsOn: day,
-          trackedRoles,
-        }
-      );
-      triggerToast.success("Week start day updated!");
-    } catch (error: any) {
-      triggerToast.error(
-        error?.response?.data?.message || "Failed to update week start day!"
-      );
-    }
-  };
-
-  const toggleTrackedRole = async (roleId: string, enabled: boolean) => {
-    const updatedRoles = {
-      ...trackedRoles,
-      [roleId]: enabled,
-    };
-    setTrackedRoles(updatedRoles);
-    try {
-      await axios.patch(
-        `/api/workspace/${router.query.id}/settings/activity/tracking`,
-        {
-          weekStartsOn,
-          trackedRoles: updatedRoles,
-        }
-      );
-      const roleName = (roles as any[]).find((r: any) => r.id === roleId)?.name || "Role";
-      triggerToast.success(
-        enabled ? `${roleName} tracking enabled!` : `${roleName} tracking disabled!`
-      );
-    } catch (error: any) {
-      const previousRoles = { ...trackedRoles };
-      delete previousRoles[roleId];
-      setTrackedRoles(previousRoles);
-      triggerToast.error(
-        error?.response?.data?.message || "Failed to update role tracking!"
-      );
-    }
-  };
-
   const resetActivity = async () => {
     setIsResetting(true);
     try {
@@ -223,85 +152,6 @@ const Activity = (props: props) => {
         Sessions are a powerful way to keep track of your groups sessions &
         shifts
       </p>
-
-      {/* Tracking Settings Section */}
-      <div className="mb-6 space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
-        <div className="flex items-center gap-2">
-          <IconCalendarTime className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-          <h3 className="font-semibold text-slate-900 dark:text-white">
-            Tracking Settings
-          </h3>
-        </div>
-
-        {/* Week Starts On */}
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            Week Starts On
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => updateWeekStartsOn("sunday")}
-              className={clsx(
-                "flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                weekStartsOn === "sunday"
-                  ? "bg-blue-500 text-white"
-                  : "bg-white text-slate-700 dark:bg-slate-700 dark:text-slate-300"
-              )}
-            >
-              Sunday
-            </button>
-            <button
-              onClick={() => updateWeekStartsOn("monday")}
-              className={clsx(
-                "flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                weekStartsOn === "monday"
-                  ? "bg-blue-500 text-white"
-                  : "bg-white text-slate-700 dark:bg-slate-700 dark:text-slate-300"
-              )}
-            >
-              Monday
-            </button>
-          </div>
-        </div>
-
-        {/* Tracked Roles */}
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            Tracked Roles
-          </div>
-          <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-300 bg-white p-3 dark:border-slate-600 dark:bg-slate-900">
-            {roles.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                No roles available
-              </p>
-            ) : (
-              roles.map((role: any) => (
-                <div
-                  key={role.id}
-                  className="flex items-center justify-between rounded-lg py-1 px-2 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  <span className="text-sm text-slate-700 dark:text-slate-300">
-                    {role.name}
-                  </span>
-                  <button
-                    onClick={() =>
-                      toggleTrackedRole(role.id, !trackedRoles[role.id])
-                    }
-                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                    title={trackedRoles[role.id] ? "Disable tracking" : "Enable tracking"}
-                  >
-                    {trackedRoles[role.id] ? (
-                      <IconToggleRight className="h-6 w-6 text-blue-500" />
-                    ) : (
-                      <IconToggleLeft className="h-6 w-6" />
-                    )}
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
 
       <div className="mb-6">
         <div className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">

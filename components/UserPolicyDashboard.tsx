@@ -62,11 +62,13 @@ const UserPolicyDashboard: FC<UserPolicyDashboardProps> = ({ workspaceId, classN
 	const [showAcknowledgmentModal, setShowAcknowledgmentModal] = useState(false);
 
 	useEffect(() => {
+		if (!workspaceId || workspaceId === '0') return;
 		fetchPolicyStatus();
 		fetchComplianceStats();
 	}, [workspaceId]);
 
 	const fetchPolicyStatus = async () => {
+		if (!workspaceId || workspaceId === '0') return;
 		try {
 			const response = await axios.get(`/api/workspace/${workspaceId}/policies/acknowledgments`);
 			setPendingPolicies(response.data.pendingPolicies || []);
@@ -79,6 +81,7 @@ const UserPolicyDashboard: FC<UserPolicyDashboardProps> = ({ workspaceId, classN
 	};
 
 	const fetchComplianceStats = async () => {
+		if (!workspaceId || workspaceId === '0') return;
 		try {
 			const response = await axios.get(`/api/workspace/${workspaceId}/policies/compliance-stats`);
 			if (response.data.success) {
@@ -129,6 +132,10 @@ const UserPolicyDashboard: FC<UserPolicyDashboardProps> = ({ workspaceId, classN
 				</div>
 			</div>
 		);
+	}
+
+	if (!workspaceId || workspaceId === '0') {
+		return null;
 	}
 
 	if (pendingPolicies.length === 0 && acknowledgedPolicies.length === 0) {

@@ -47,7 +47,41 @@ export default function StickyNoteAnnouncement() {
 		  <div>
             <p className="font-semibold mt-2">🎉 Promotions</p>
             <p>
-              I've added a feature to 
+              I've added a feature to reccomend promotions for staff members.
+			  Workspace admins can enable this in the settings, and staff can vote
+			  for promotions with justifications.
+            </p>
+          </div>
+		  <div>
+            <p className="font-semibold mt-2">🌈 Colors!</p>
+            <p>
+              I've added a lot more workspace colors in the workspace settings.
+			  Pick your favorite color to represent your workspace!
+            </p>
+          </div>
+		  <div>
+            <p className="font-semibold mt-2">🔑 Passwords</p>
+            <p>
+              Our password security policy has been improved! There's now a list of cirteria a password has to meet! Here's to safer accounts!
+            </p>
+          </div>
+		  <div>
+            <p className="font-semibold mt-2">📢 Lookie here! New UI!</p>
+            <p>
+              I've updated the UI of Varyn to bring a more modern feel to the app!
+			  Enjoy the fresh new look while I work on more features!
+            </p>
+          </div>
+		  <div>
+            <p className="font-semibold mt-2">⭐ Workspace Tours</p>
+            <p>
+              I've added a "tour" feature to workspaces! This'll help you identify key content you may not know how to use! 
+            </p>
+          </div>
+		  <div>
+            <p className="font-semibold mt-2">🔎 Staff Searching Fixed!</p>
+            <p>
+              I have fixed the staff searching feature that was broken in the last update. You can now search for staff members properly again!
             </p>
           </div>
           <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">

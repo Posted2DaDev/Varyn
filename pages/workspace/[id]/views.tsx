@@ -944,18 +944,21 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
         if (!filter.value) continue;
         
         if (filter.column === "username") {
+          const username = user.info.username?.toLowerCase() || "";
+          const filterValue = filter.value.toLowerCase();
+          
           if (filter.filter === "equal") {
-            if (user.info.username !== filter.value) {
+            if (username !== filterValue) {
               valid = false;
               break;
             }
           } else if (filter.filter === "notEqual") {
-            if (user.info.username === filter.value) {
+            if (username === filterValue) {
               valid = false;
               break;
             }
           } else if (filter.filter === "contains") {
-            if (!user.info.username?.includes(filter.value)) {
+            if (!username.includes(filterValue)) {
               valid = false;
               break;
             }
@@ -1216,14 +1219,14 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-50 via-white to-zinc-50 dark:from-zinc-900 dark:via-zinc-950 dark:to-zinc-900">
+    <div className="min-h-screen bg-white dark:bg-zinc-900">
       <Toaster position="bottom-center" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-start gap-4">
-            <div className="bg-gradient-to-br from-[#ff0099]/20 to-[#ff0099]/10 p-3 rounded-lg flex-shrink-0">
-              <IconUsers className="w-6 h-6 text-[#ff0099]" />
+            <div className="bg-primary/10 p-3 rounded-lg flex-shrink-0">
+              <IconUsers className="w-6 h-6 text-primary" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
@@ -1239,7 +1242,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
         <div className="flex gap-6">
           <aside className="w-64 hidden md:block">
             <div className="sticky top-8">
-              <div className="bg-white dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 space-y-3">
+              <div className="bg-white dark:bg-zinc-800/50 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700/50 rounded-lg p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
                     Views
@@ -1325,7 +1328,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
           </aside>
 
           <div className="md:hidden w-full mb-4">
-            <div className="bg-white dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700 rounded-lg p-3">
+            <div className="bg-white dark:bg-zinc-800/50 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700/50 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-7 h-7 rounded-md flex items-center justify-center bg-zinc-100 dark:bg-zinc-700/30 text-zinc-700 dark:text-zinc-200">
@@ -1356,7 +1359,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
                     key={v.id}
                     className={`flex items-center justify-between gap-2 px-3 py-2 rounded-md ${
                       selectedViewId === v.id
-                        ? "bg-zinc-50 dark:bg-zinc-800/40 border-l-4 border-[#ff0099]"
+                        ? "bg-zinc-50 dark:bg-zinc-800/40 border-l-4 border-primary"
                         : "hover:bg-zinc-50 dark:hover:bg-zinc-700/40"
                     }`}
                     style={{ minWidth: 0 }}
@@ -1423,7 +1426,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
                             selectedViewId !== null
                               ? "bg-zinc-100 dark:bg-zinc-700/50 border-zinc-200 dark:border-zinc-600 text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
                               : open
-                              ? "bg-zinc-100 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white ring-2 ring-[#ff0099]/50"
+                              ? "bg-zinc-100 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white ring-2 ring-primary/50"
                               : "bg-zinc-50 dark:bg-zinc-700/50 border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white"
                           }`}
                         >
@@ -1444,7 +1447,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
                             <div className="space-y-3">
                               <button
                                 onClick={newfilter}
-                                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg text-white bg-[#ff0099] hover:bg-[#ff0099]/90 transition-all"
+                                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary/90 transition-all"
                               >
                                 <IconPlus className="w-4 h-4" />
                                 Add Filter
@@ -1486,7 +1489,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
                             selectedViewId !== null
                               ? "bg-zinc-100 dark:bg-zinc-700/50 border-zinc-200 dark:border-zinc-600 text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
                               : open
-                              ? "bg-zinc-100 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white ring-2 ring-[#ff0099]/50"
+                              ? "bg-zinc-100 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white ring-2 ring-primary/50"
                               : "bg-zinc-50 dark:bg-zinc-700/50 border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white"
                           }`}
                         >
@@ -1565,7 +1568,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
                             <img
                               src={u.thumbnail}
                               alt={u.username}
-                              className="w-6 h-6 rounded-full bg-[#ff0099]"
+                              className="w-6 h-6 rounded-full bg-primary"
                             />
                             <span className="text-sm font-medium text-zinc-900 dark:text-zinc-200 group-hover:text-zinc-950 dark:group-hover:text-white transition-colors">
                               {u.username}
@@ -1588,7 +1591,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
                       setType("promotion");
                       setIsOpen(true);
                     }}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg text-white bg-emerald-600/80 hover:bg-emerald-600 transition-all"
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg text-white bg-primary/80 hover:bg-primary transition-all"
                   >
                     <IconUserCheck className="w-4 h-4" />
                     Promote
@@ -1815,7 +1818,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
                       </button>
                       <button
                         type="button"
-                        className="inline-flex justify-center px-3 py-1.5 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                        className="inline-flex justify-center px-3 py-1.5 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary transition-all"
                         onClick={massAction}
                       >
                         Confirm
@@ -1962,7 +1965,7 @@ const Views: pageWithLayout<pageProps> = ({ usersInGroup, ranks }) => {
                       </button>
                       <button
                         type="button"
-                        className="inline-flex justify-center px-3 py-1.5 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-primary/90"
+                        className="inline-flex justify-center px-3 py-1.5 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-primary/90 transition-all"
                         onClick={saveCurrentView}
                       >
                         Save
