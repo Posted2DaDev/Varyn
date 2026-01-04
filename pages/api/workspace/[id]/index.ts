@@ -27,6 +27,7 @@ type Data = {
 			noticesEnabled: boolean
 			policiesEnabled: boolean
 			widgets: string[]
+			coverImage: string | null
 		}
 	}
 }
