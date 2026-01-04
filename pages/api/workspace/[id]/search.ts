@@ -107,19 +107,19 @@ export default withSessionRoute(async function handler(
       const documents = await prisma.document.findMany({
         where: {
           workspaceGroupId: workspaceId,
-          title: {
+          name: {
             contains: q,
             mode: 'insensitive',
           },
         },
         select: {
           id: true,
-          title: true,
+          name: true,
         },
         take: 5,
       });
 
-      results.documents = documents;
+      results.documents = documents.map(doc => ({ id: doc.id, title: doc.name }));
     }
 
     return res.status(200).json({ success: true, results });
