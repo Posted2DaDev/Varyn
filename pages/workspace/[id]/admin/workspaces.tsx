@@ -385,8 +385,8 @@ const WorkspaceManagement: pageWithLayout = () => {
   )
 }
 
-WorkspaceManagement.layout = (page: React.ReactElement) => (
-  <Workspace>{page}</Workspace>
+WorkspaceManagement.layout = ({ children }) => (
+  <Workspace>{children}</Workspace>
 )
 
 export default WorkspaceManagement
