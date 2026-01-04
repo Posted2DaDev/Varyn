@@ -4,7 +4,7 @@ import { workspacestate } from "@/state";
 import { useRecoilState } from "recoil";
 import { Switch } from "@headlessui/react";
 type Props = {
-	onChange?: () => void;
+	onChange?: (value: boolean) => void;
 	label: string;
 	classoverride?: string;
 	disabled?: boolean | false;
