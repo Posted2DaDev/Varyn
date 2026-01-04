@@ -385,7 +385,7 @@ const WorkspaceManagement: pageWithLayout = () => {
   )
 }
 
-WorkspaceManagement.getLayout = (page: React.ReactElement) => (
+WorkspaceManagement.layout = (page: React.ReactElement) => (
   <Workspace>{page}</Workspace>
 )
 
