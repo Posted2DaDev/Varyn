@@ -70,7 +70,7 @@ export const getServerSideProps: GetServerSideProps = withPermissionCheckSsr(
         },
         include: {
           roles: true,
-          departments: true,
+          department: true,
         },
       }),
     ]);
