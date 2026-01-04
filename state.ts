@@ -2,8 +2,10 @@ import { atom, type RecoilState } from "recoil";
 import { role } from "@prisma/client";
 export type workspaceinfo = {
 	groupId: number;
-				groupThumbnail: string;
-				groupName: string
+			groupThumbnail: string;
+			groupName: string;
+			isDeleted?: boolean;
+			isSuspended?: boolean;
 }
 
 export type WorkspaceState = {
