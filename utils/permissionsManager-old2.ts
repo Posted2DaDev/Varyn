@@ -678,7 +678,7 @@ export async function checkGroupRoles(groupID: number) {
                         },
                       },
                       username: member.username,
-                      picture: getThumbnail(member.userId),
+                      picture: await getThumbnail(member.userId),
                     },
                     update: {
                       roles: {
