@@ -70,6 +70,7 @@ export async function handler(
 				}
 			}
 		});
+		if (!workspaceWithRoles) return res.status(404).json({ success: false, error: 'Not found' });
 
 		const user = await prisma.user.findFirst({
 			where: {
