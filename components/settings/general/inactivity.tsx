@@ -80,7 +80,7 @@ const InactivitySettings: FC<props> = (props) => {
 						label="Webhook URL"
 						placeholder="https://discord.com/api/webhooks/..."
 						value={webhookUrl}
-						onChange={(e) => setWebhookUrl(e.target.value)}
+						onChange={async (e) => setWebhookUrl(e.target.value)}
 					/>
 					<button
 						onClick={updateSettings}
