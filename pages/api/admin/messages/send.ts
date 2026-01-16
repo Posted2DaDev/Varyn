@@ -43,8 +43,8 @@ export default withSessionRoute(async function handler(req: NextApiRequest, res:
   const subject = typeof req.body?.subject === "string" ? req.body.subject.trim() : "";
   const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
   const recipientScope = req.body?.recipientScope as RecipientScope;
-  const specificUserIds = Array.isArray(req.body?.userIds)
-    ? req.body.userIds.map((id: string | number) => Number(id)).filter((id) => Number.isFinite(id))
+  const specificUserIds: number[] = Array.isArray(req.body?.userIds)
+    ? req.body.userIds.map((id: string | number) => Number(id)).filter((id: number) => Number.isFinite(id))
     : [];
 
   if (!subject) return res.status(400).json({ success: false, error: "Subject is required" });

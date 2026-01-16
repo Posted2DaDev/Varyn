@@ -89,6 +89,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/moment-timezone": "^0.5.30",
     "@types/node": "^20.12.12",
+    "@types/nodemailer": "^7.0.5",
     "@types/pg": "^8.15.6",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.3",

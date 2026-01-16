@@ -66,6 +66,8 @@ model user {
   picture                                             String?
   username                                            String?
   registered                                          Boolean?
+  email                                               String?
+  country                                             String?
   birthdayDay                                         Int?
   birthdayMonth                                       Int?
   adjustmentsMade                                     ActivityAdjustment[]     @relation("AdjustmentActor")

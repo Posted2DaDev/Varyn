@@ -9,15 +9,22 @@ type Props = {
 	prepend?: string;
 	disabled?: boolean;
 	classoverride?: string;
-	textarea?: boolean | false
+	textarea?: boolean | false;
 	id?: string;
 	type?: string | "text";
-	value?: string
+	value?: string;
+	onChange?: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+	onBlur?: React.FocusEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+	name?: string;
 };
+
+type RegisterProps = Partial<
+	Omit<ReturnType<UseFormRegister<any>>, "onChange" | "onBlur" | "name">
+>;
 
 const Input = React.forwardRef<
 	HTMLInputElement | HTMLTextAreaElement,
-	Props & Partial<ReturnType<UseFormRegister<any>>>
+	Props & RegisterProps
 >(({ placeholder, label, classoverride = "", id, onChange, onBlur, name, type, textarea, append, prepend, disabled, value }, ref) => {
 	const formContext = useFormContext();
 	const errors = formContext ? (formContext.formState?.errors as any) : {};

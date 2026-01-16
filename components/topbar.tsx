@@ -3,7 +3,7 @@ import { loginState } from "@/state";
 import { useRecoilState } from "recoil";
 import { Menu, Transition } from "@headlessui/react";
 import { useRouter } from "next/router";
-import { IconLogout, IconChevronDown } from "@tabler/icons-react";
+import { IconLogout, IconChevronDown, IconSettings, IconMoon, IconSun } from "@tabler/icons-react";
 import axios from "axios";
 import { Fragment } from "react";
 import ThemeToggle from "./ThemeToggle";
@@ -82,6 +82,20 @@ const Topbar: NextPage = () => {
 									</div>
 
 									<div className="h-px bg-zinc-200 dark:bg-zinc-700 my-2" />
+
+									<Menu.Item>
+										{({ active }) => (
+											<button
+												onClick={() => router.push('/settings')}
+												className={`${
+													active ? 'bg-zinc-100 dark:bg-zinc-700' : ''
+												} group flex w-full items-center rounded-md px-3 py-2 text-sm`}
+											>
+												<IconSettings className="mr-2 h-5 w-5 text-zinc-500 dark:text-zinc-400" />
+												<span className="text-zinc-700 dark:text-zinc-200">Preferences</span>
+											</button>
+										)}
+									</Menu.Item>
 
 									<Menu.Item>
 										{({ active }) => (

@@ -25,6 +25,7 @@ import { themeState } from "@/state/theme";
 import AuthProvider from "./AuthProvider";
 import axios from "axios";
 import { loginState } from "@/state";
+import DesktopCat from "@/components/DesktopCat";
 
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const POSTHOG_HOST =
@@ -131,6 +132,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       <Initializer />
       <ThemeHandler />
       <ColorThemeHandler />
+      <DesktopCat />
 
       {!loading ? (
         <Layout>

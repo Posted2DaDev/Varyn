@@ -8,6 +8,7 @@ type Props = {
   onPress?: () => void;
   onClick?: () => void;
   classoverride?: string;
+  className?: string;
   loading?: boolean | false;
   workspace?: boolean | false;
   compact?: boolean | false;
@@ -21,6 +22,7 @@ const Button: FC<Props> = ({
   onClick,
   loading,
   classoverride,
+  className,
   workspace,
   compact,
   disabled,
@@ -39,7 +41,7 @@ const Button: FC<Props> = ({
             ? "hover:bg-orbit/80  focus-visible:bg-orbit/80 disabled:bg-orbit/80/50"
             : "bg-primary dark:bg-zinc-700 hover:bg-primary/50 focus-visible:bg-primary/50 disabled:bg-primary/50"
         } dark:hover:bg-zinc-300 dark:focus-visible:bg-zinc-300 dark:bg-white dark:disabled:bg-white/50 dark:text-black focus-visible:outline-none`,
-        classoverride
+        className ?? classoverride
       )}
     >
       {loading ? (
